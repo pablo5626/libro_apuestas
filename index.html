@@ -990,7 +990,7 @@ function renderNueva() {
     ${f.tipo === "Simple" ? `
       <div class="field">
         <label class="label-caps">Cuota decimal</label>
-        <input id="input-cuota" data-field="form.cuota" type="number" min="1" step="0.01" class="input" value="${esc(f.cuota)}" placeholder="1.85" />
+        <input id="input-cuota" data-field="form.cuota" type="text" inputmode="decimal" class="input" value="${esc(f.cuota)}" placeholder="1.85" />
       </div>
     ` : `
       <div class="field">
@@ -998,7 +998,7 @@ function renderNueva() {
         ${f.legs.map((leg, i) => `
           <div class="leg-row">
             <input id="leg-desc-${leg.id}" data-leg-field="descripcion" data-leg-id="${leg.id}" class="input leg-desc" placeholder="Selección ${i + 1}" value="${esc(leg.descripcion)}" />
-            <input id="leg-cuota-${leg.id}" data-leg-field="cuota" data-leg-id="${leg.id}" type="number" step="0.01" min="1" class="input leg-cuota" placeholder="Cuota" value="${esc(leg.cuota)}" />
+            <input id="leg-cuota-${leg.id}" data-leg-field="cuota" data-leg-id="${leg.id}" type="text" inputmode="decimal" class="input leg-cuota" placeholder="Cuota" value="${esc(leg.cuota)}" />
             <button type="button" class="delete-btn" data-action="remove-leg" data-leg-id="${leg.id}">${icon("x", 15)}</button>
           </div>
         `).join("")}
@@ -1010,7 +1010,7 @@ function renderNueva() {
     <div class="grid-2">
       <div class="field">
         <label class="label-caps">Unidades (opcional)</label>
-        <input id="input-unidades" data-field="form.unidades" type="number" min="0" step="0.1" class="input" value="${esc(f.unidades)}" placeholder="${state.config.valorUnidad ? "ej. 1.5" : "define su valor en Ajustes"}" />
+        <input id="input-unidades" data-field="form.unidades" type="text" inputmode="decimal" class="input" value="${esc(f.unidades)}" placeholder="${state.config.valorUnidad ? "ej. 1.5" : "define su valor en Ajustes"}" />
       </div>
       <div class="field">
         <label class="label-caps">Etiquetas (opcional)</label>
@@ -1284,22 +1284,6 @@ function renderAjustes(stats) {
     <div style="font-size:12px; color:${C.onSurfaceVariant};">Se mostrará una barra de progreso en Resumen comparando tu ganancia neta de apuestas del mes contra esta meta.</div>
   </div>
 
-  <div class="card" style="padding:20px; margin-bottom:16px;">
-    <h2 class="headline-md" style="margin:0 0 4px;">Calculadora de Kelly</h2>
-    <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-bottom:14px;">Sugiere qué porcentaje de tu banca apostar según la cuota y tu probabilidad estimada de ganar.</div>
-    <div class="grid-2">
-      <div class="field">
-        <label class="label-caps">Cuota decimal</label>
-        <input id="input-kelly-cuota" data-field="kellyForm.cuota" type="number" min="1" step="0.01" class="input" value="${esc(state.kellyForm.cuota)}" placeholder="1.85" />
-      </div>
-      <div class="field">
-        <label class="label-caps">Probabilidad estimada (%)</label>
-        <input id="input-kelly-prob" data-field="kellyForm.prob" type="number" min="1" max="99" step="1" class="input" value="${esc(state.kellyForm.prob)}" placeholder="55" />
-      </div>
-    </div>
-    ${renderKellyResult(stats)}
-  </div>
-
   <div class="card" style="padding:20px;">
     <h2 class="headline-md" style="margin:0 0 16px;">Exportar / respaldo</h2>
     <div class="stack-8">
@@ -1382,10 +1366,31 @@ function renderMonthlyROIChart(months) {
   `;
 }
 
+function renderKellyCard(stats) {
+  return `
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <h2 class="headline-md" style="margin:0 0 4px;">Calculadora de Kelly</h2>
+    <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-bottom:14px;">Sugiere qué porcentaje de tu banca apostar según la cuota y tu probabilidad estimada de ganar.</div>
+    <div class="grid-2">
+      <div class="field">
+        <label class="label-caps">Cuota decimal</label>
+        <input id="input-kelly-cuota" data-field="kellyForm.cuota" type="text" inputmode="decimal" class="input" value="${esc(state.kellyForm.cuota)}" placeholder="1.85" />
+      </div>
+      <div class="field">
+        <label class="label-caps">Probabilidad estimada (%)</label>
+        <input id="input-kelly-prob" data-field="kellyForm.prob" type="number" min="1" max="99" step="1" class="input" value="${esc(state.kellyForm.prob)}" placeholder="55" />
+      </div>
+    </div>
+    ${renderKellyResult(stats)}
+  </div>
+  `;
+}
+
 function renderEstadisticas(stats) {
   const anySettled = state.apuestas.some(a => a.estado !== "Pendiente");
   if (!anySettled) {
     return `
+    ${renderKellyCard(stats)}
     <div class="empty-state">
       <div class="icon-wrap">${icon("barChart", 38, C.outlineVariant)}</div>
       <div class="msg">Aún no tienes apuestas resueltas. Las estadísticas aparecerán cuando marques apuestas como Ganada o Perdida.</div>
@@ -1422,6 +1427,7 @@ function renderEstadisticas(stats) {
   const byTypeSig = byType.map(withSignificance);
 
   return `
+  ${renderKellyCard(stats)}
   <div class="stats-grid">
     <div class="stat-card">
       <span class="label-caps">Profit factor</span>
@@ -1543,7 +1549,28 @@ function renderBottomNav() {
 }
 
 // ─── Master render ──────────────────────────────────────────────────────────
+// ─── Render scheduling ──────────────────────────────────────────────────────
+// Typing triggers frequent state changes. Doing a full innerHTML rebuild of the
+// whole app on every keystroke is what makes typing (and everything else) feel
+// laggy on phones. We keep state updates instant, but coalesce the DOM sync
+// into a single render per short idle pause instead of one per character.
+let renderTimer = null;
+function scheduleRender(delay = 100) {
+  if (renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => {
+    renderTimer = null;
+    render();
+  }, delay);
+}
+
+let saveConfigTimer = null;
+function scheduleSaveConfig(delay = 500) {
+  if (saveConfigTimer) clearTimeout(saveConfigTimer);
+  saveConfigTimer = setTimeout(saveConfig, delay);
+}
+
 function render() {
+  if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
   const app = document.getElementById("app");
 
   if (state.loading) {
@@ -1571,8 +1598,6 @@ function render() {
     <div class="content">${body}</div>
     ${renderBottomNav()}
   `;
-
-  bindEvents();
 
   if (activeId) {
     const el = document.getElementById(activeId);
@@ -1638,126 +1663,167 @@ function handleAddMovimiento() {
   render();
 }
 
-function bindEvents() {
-  const app = document.getElementById("app");
+// ─── Events (delegated) ─────────────────────────────────────────────────────
+// IMPORTANT: these listeners are attached ONCE to the (static) #app container,
+// not re-attached after every render. Event delegation means clicks/typing on
+// dynamically-created children (bet cards, form fields, etc.) still work fine
+// because the events bubble up to #app, but we avoid the cost of tearing down
+// and re-creating hundreds of listeners on every keystroke/render — that
+// per-render `querySelectorAll(...).forEach(addEventListener)` was the main
+// reason typing and tapping felt slow, especially on iPhone Safari.
 
-  app.querySelectorAll("[data-action]").forEach(el => {
-    el.addEventListener("click", () => {
-      const action = el.dataset.action;
-
-      if (action === "set-tab") { state.tab = el.dataset.tab; render(); }
-      else if (action === "toggle-theme") { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); saveTheme(); render(); }
-      else if (action === "add-apuesta") { handleAddApuesta(); }
-      else if (action === "add-movimiento") { handleAddMovimiento(); }
-      else if (action === "set-estado") {
-        const id = Number(el.dataset.id);
-        state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, estado: el.dataset.estado } : x);
-        saveApuestas(); render();
-      }
-      else if (action === "delete-apuesta") {
-        const id = Number(el.dataset.id);
-        state.apuestas = state.apuestas.filter(x => x.id !== id);
-        saveApuestas(); render();
-      }
-      else if (action === "delete-movimiento") {
-        const id = Number(el.dataset.id);
-        state.movimientos = state.movimientos.filter(x => x.id !== id);
-        saveMovimientos(); render();
-      }
-      else if (action === "set-mov-tipo") { state.movForm.tipo = el.dataset.tipo; render(); }
-      else if (action === "set-fdeporte") { state.fDeporte = el.dataset.value; render(); }
-      else if (action === "set-festado") { state.fEstado = el.dataset.value; render(); }
-      else if (action === "set-ftag") { state.fTag = el.dataset.value; render(); }
-      else if (action === "toggle-vencidas") { state.fVencidasOnly = !state.fVencidasOnly; render(); }
-      else if (action === "ver-vencidas") { state.tab = "historial"; state.fEstado = "Pendiente"; state.fVencidasOnly = true; render(); }
-      else if (action === "add-leg") { state.form.legs.push({ id: genId(), descripcion: "", cuota: "" }); render(); }
-      else if (action === "remove-leg") {
-        const legId = el.dataset.legId;
-        state.form.legs = state.form.legs.filter(l => l.id !== legId);
-        render();
-      }
-      else if (action === "set-leg-estado") {
-        const id = Number(el.dataset.id);
-        const legId = el.dataset.legId;
-        const estado = el.dataset.estado;
-        state.apuestas = state.apuestas.map(x => {
-          if (x.id !== id) return x;
-          const selecciones = x.selecciones.map(l => l.id === legId ? { ...l, resultado: estado } : l);
-          const updated = { ...x, selecciones };
-          updated.estado = syncEstadoFromLegs(updated);
-          return updated;
-        });
-        saveApuestas(); render();
-      }
-      else if (action === "edit-clv") {
-        const id = Number(el.dataset.id);
-        const a = state.apuestas.find(x => x.id === id);
-        const val = prompt("Cuota de cierre (para calcular CLV):", a.cuotaCierre ?? "");
-        if (val === null) return;
-        const num = parseFloat(val);
-        state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, cuotaCierre: isNaN(num) ? null : num } : x);
-        saveApuestas(); render();
-      }
-      else if (action === "edit-nota") {
-        const id = Number(el.dataset.id);
-        const a = state.apuestas.find(x => x.id === id);
-        const val = prompt("Nota:", a.nota || "");
-        if (val === null) return;
-        state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, nota: val } : x);
-        saveApuestas(); render();
-      }
-      else if (action === "export-apuestas-csv") { downloadFile(`apuestas_${today}.csv`, "\uFEFF" + apuestasToCSV(state.apuestas), "text/csv;charset=utf-8;"); }
-      else if (action === "export-historial-csv") { downloadFile(`apuestas_filtradas_${today}.csv`, "\uFEFF" + apuestasToCSV(computeFiltradas()), "text/csv;charset=utf-8;"); }
-      else if (action === "export-movimientos-csv" || action === "export-movimientos-csv-tab") { downloadFile(`movimientos_${today}.csv`, "\uFEFF" + movimientosToCSV(state.movimientos), "text/csv;charset=utf-8;"); }
-      else if (action === "export-backup") { exportBackup(); }
+function runAction(action, el) {
+  if (action === "set-tab") { state.tab = el.dataset.tab; render(); }
+  else if (action === "toggle-theme") { state.theme = state.theme === "dark" ? "light" : "dark"; applyTheme(); saveTheme(); render(); }
+  else if (action === "add-apuesta") { handleAddApuesta(); }
+  else if (action === "add-movimiento") { handleAddMovimiento(); }
+  else if (action === "set-estado") {
+    const id = Number(el.dataset.id);
+    state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, estado: el.dataset.estado } : x);
+    saveApuestas(); render();
+  }
+  else if (action === "delete-apuesta") {
+    const id = Number(el.dataset.id);
+    state.apuestas = state.apuestas.filter(x => x.id !== id);
+    saveApuestas(); render();
+  }
+  else if (action === "delete-movimiento") {
+    const id = Number(el.dataset.id);
+    state.movimientos = state.movimientos.filter(x => x.id !== id);
+    saveMovimientos(); render();
+  }
+  else if (action === "set-mov-tipo") { state.movForm.tipo = el.dataset.tipo; render(); }
+  else if (action === "set-fdeporte") { state.fDeporte = el.dataset.value; render(); }
+  else if (action === "set-festado") { state.fEstado = el.dataset.value; render(); }
+  else if (action === "set-ftag") { state.fTag = el.dataset.value; render(); }
+  else if (action === "toggle-vencidas") { state.fVencidasOnly = !state.fVencidasOnly; render(); }
+  else if (action === "ver-vencidas") { state.tab = "historial"; state.fEstado = "Pendiente"; state.fVencidasOnly = true; render(); }
+  else if (action === "add-leg") { state.form.legs.push({ id: genId(), descripcion: "", cuota: "" }); render(); }
+  else if (action === "remove-leg") {
+    const legId = el.dataset.legId;
+    state.form.legs = state.form.legs.filter(l => l.id !== legId);
+    render();
+  }
+  else if (action === "set-leg-estado") {
+    const id = Number(el.dataset.id);
+    const legId = el.dataset.legId;
+    const estado = el.dataset.estado;
+    state.apuestas = state.apuestas.map(x => {
+      if (x.id !== id) return x;
+      const selecciones = x.selecciones.map(l => l.id === legId ? { ...l, resultado: estado } : l);
+      const updated = { ...x, selecciones };
+      updated.estado = syncEstadoFromLegs(updated);
+      return updated;
     });
-  });
+    saveApuestas(); render();
+  }
+  else if (action === "edit-clv") {
+    const id = Number(el.dataset.id);
+    const a = state.apuestas.find(x => x.id === id);
+    const val = prompt("Cuota de cierre (para calcular CLV):", a.cuotaCierre ?? "");
+    if (val === null) return;
+    const num = parseFloat(val);
+    state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, cuotaCierre: isNaN(num) ? null : num } : x);
+    saveApuestas(); render();
+  }
+  else if (action === "edit-nota") {
+    const id = Number(el.dataset.id);
+    const a = state.apuestas.find(x => x.id === id);
+    const val = prompt("Nota:", a.nota || "");
+    if (val === null) return;
+    state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, nota: val } : x);
+    saveApuestas(); render();
+  }
+  else if (action === "export-apuestas-csv") { downloadFile(`apuestas_${today}.csv`, "\uFEFF" + apuestasToCSV(state.apuestas), "text/csv;charset=utf-8;"); }
+  else if (action === "export-historial-csv") { downloadFile(`apuestas_filtradas_${today}.csv`, "\uFEFF" + apuestasToCSV(computeFiltradas()), "text/csv;charset=utf-8;"); }
+  else if (action === "export-movimientos-csv" || action === "export-movimientos-csv-tab") { downloadFile(`movimientos_${today}.csv`, "\uFEFF" + movimientosToCSV(state.movimientos), "text/csv;charset=utf-8;"); }
+  else if (action === "export-backup") { exportBackup(); }
+}
 
-  app.querySelectorAll("[data-field]").forEach(el => {
-    const evt = (el.tagName === "SELECT" || el.type === "date") ? "change" : "input";
-    el.addEventListener(evt, (e) => {
-      const path = el.dataset.field;
-      let value = e.target.value;
+// iPhones con idioma español (incluye es-CO) muestran una "," como separador
+// decimal en el teclado numérico, pero HTML/JS solo entienden el ".". Sin
+// esto, escribir "1,85" en un campo de cuota se veía como un error (el valor
+// quedaba vacío o no calculaba nada). Normalizamos a "." apenas se escribe,
+// sin importar qué tecla haya mostrado el teclado.
+function normalizeDecimal(value) {
+  let v = value.replace(/,/g, ".");
+  const firstDot = v.indexOf(".");
+  if (firstDot !== -1) {
+    v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, "");
+  }
+  return v;
+}
 
-      if (path.startsWith("config.")) {
-        const num = value === "" ? null : parseFloat(value);
-        setField(path, num);
-        saveConfig();
-      } else {
-        setField(path, value);
-        if (path === "form.tipo" && value === "Combinada" && state.form.legs.length === 0) {
-          state.form.legs = [{ id: genId(), descripcion: "", cuota: "" }, { id: genId(), descripcion: "", cuota: "" }];
-        }
-        if (path === "form.unidades") {
-          const num = parseFloat(value);
-          if (!isNaN(num) && state.config.valorUnidad && !state.form.monto) {
-            state.form.monto = String(Math.round(num * state.config.valorUnidad));
-          }
-        }
+function applyFieldChange(el) {
+  const path = el.dataset.field;
+  let value = el.value;
+  if (el.inputMode === "decimal") value = normalizeDecimal(value);
+
+  if (path.startsWith("config.")) {
+    const num = value === "" ? null : parseFloat(value);
+    setField(path, num);
+    scheduleSaveConfig();
+  } else {
+    setField(path, value);
+    if (path === "form.tipo" && value === "Combinada" && state.form.legs.length === 0) {
+      state.form.legs = [{ id: genId(), descripcion: "", cuota: "" }, { id: genId(), descripcion: "", cuota: "" }];
+    }
+    if (path === "form.unidades") {
+      const num = parseFloat(value);
+      if (!isNaN(num) && state.config.valorUnidad && !state.form.monto) {
+        state.form.monto = String(Math.round(num * state.config.valorUnidad));
       }
-      render();
-    });
-  });
-
-  app.querySelectorAll("[data-leg-field]").forEach(el => {
-    el.addEventListener("input", (e) => {
-      const legId = el.dataset.legId;
-      const field = el.dataset.legField;
-      state.form.legs = state.form.legs.map(l => l.id === legId ? { ...l, [field]: e.target.value } : l);
-      render();
-    });
-  });
-
-  const importInput = document.getElementById("import-file-input");
-  if (importInput) {
-    importInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (file) handleImportFile(file);
-    });
+    }
   }
 }
 
+function bindEventsOnce() {
+  const app = document.getElementById("app");
+
+  app.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-action]");
+    if (!el) return;
+    runAction(el.dataset.action, el);
+  });
+
+  // Free-typing fields (text/number/textarea): update state instantly so
+  // nothing is ever lost, but debounce the full re-render so rapid typing
+  // doesn't force a full DOM rebuild on every single keystroke.
+  app.addEventListener("input", (e) => {
+    const el = e.target;
+    if (el.dataset && el.dataset.legField) {
+      const legId = el.dataset.legId;
+      const field = el.dataset.legField;
+      const val = el.inputMode === "decimal" ? normalizeDecimal(el.value) : el.value;
+      state.form.legs = state.form.legs.map(l => l.id === legId ? { ...l, [field]: val } : l);
+      scheduleRender();
+      return;
+    }
+    if (el.dataset && el.dataset.field) {
+      if (el.tagName === "SELECT" || el.type === "date") return; // these use 'change' below
+      applyFieldChange(el);
+      scheduleRender();
+    }
+  });
+
+  // Selects and dates fire 'change', not (usefully) 'input' — these are
+  // infrequent, discrete choices, so render immediately for instant feedback.
+  app.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.id === "import-file-input") {
+      const file = el.files && el.files[0];
+      if (file) handleImportFile(file);
+      return;
+    }
+    if (el.dataset && el.dataset.field) {
+      applyFieldChange(el);
+      render();
+    }
+  });
+}
+
 // ─── Init ───────────────────────────────────────────────────────────────────
+bindEventsOnce();
 loadData();
 </script>
 </body>
