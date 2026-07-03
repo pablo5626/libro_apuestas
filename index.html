@@ -1754,6 +1754,21 @@ function normalizeDecimal(value) {
   return v;
 }
 
+// Campos cuyo valor alimenta algo visible EN VIVO en la misma pantalla
+// (previsualización de ganancia, cuota combinada, resultado de Kelly, el
+// texto de "tu saldo equivale a Xu"). Solo estos ameritan reconstruir el DOM
+// mientras el usuario todavía está escribiendo — todos los demás campos
+// (descripción, nota, etiquetas, fecha, montos de movimientos, etc.) no
+// mueven nada más en pantalla, así que no hay ninguna razón para tocar el DOM
+// en cada tecla: el navegador ya muestra lo que el usuario escribió de forma
+// nativa, y el estado se sincroniza igual (queda guardado al instante).
+// Esto es lo que realmente elimina el "trabado" al escribir en iPhone: la
+// mayoría de teclas ahora no disparan NINGÚN render, ni siquiera diferido.
+const LIVE_PREVIEW_FIELDS = new Set([
+  "form.monto", "form.cuota", "form.unidades", "config.valorUnidad",
+  "kellyForm.cuota", "kellyForm.prob",
+]);
+
 function applyFieldChange(el) {
   const path = el.dataset.field;
   let value = el.value;
@@ -1786,9 +1801,10 @@ function bindEventsOnce() {
     runAction(el.dataset.action, el);
   });
 
-  // Free-typing fields (text/number/textarea): update state instantly so
-  // nothing is ever lost, but debounce the full re-render so rapid typing
-  // doesn't force a full DOM rebuild on every single keystroke.
+  // Free-typing fields (text/number/textarea): the state is ALWAYS updated
+  // instantly on every keystroke — nothing is ever lost or delayed in terms
+  // of data. What's deferred/skipped is purely the visual DOM sync, and only
+  // for fields where deferring it is actually safe (see LIVE_PREVIEW_FIELDS).
   app.addEventListener("input", (e) => {
     const el = e.target;
     if (el.dataset && el.dataset.legField) {
@@ -1796,18 +1812,23 @@ function bindEventsOnce() {
       const field = el.dataset.legField;
       const val = el.inputMode === "decimal" ? normalizeDecimal(el.value) : el.value;
       state.form.legs = state.form.legs.map(l => l.id === legId ? { ...l, [field]: val } : l);
-      scheduleRender();
+      // Solo la cuota de cada selección alimenta la caja de "cuota combinada"
+      // en vivo; la descripción de la selección no mueve nada más en pantalla.
+      if (field === "cuota") scheduleRender(180);
       return;
     }
     if (el.dataset && el.dataset.field) {
       if (el.tagName === "SELECT" || el.type === "date") return; // these use 'change' below
       applyFieldChange(el);
-      scheduleRender();
+      if (LIVE_PREVIEW_FIELDS.has(el.dataset.field)) scheduleRender(180);
     }
   });
 
   // Selects and dates fire 'change', not (usefully) 'input' — these are
   // infrequent, discrete choices, so render immediately for instant feedback.
+  // 'change' also fires on blur for text/number inputs, which is what
+  // guarantees a final DOM sync for fields we skipped above once the user
+  // moves on to something else.
   app.addEventListener("change", (e) => {
     const el = e.target;
     if (el.id === "import-file-input") {
