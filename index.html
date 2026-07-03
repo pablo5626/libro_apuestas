@@ -195,10 +195,22 @@
   .loading-screen{ display:flex; align-items:center; justify-content:center; height:100vh; color:var(--on-surface-variant); font-size:14px; }
   .stack{ display:flex; flex-direction:column; gap:10px; }
   .stack-8{ display:flex; flex-direction:column; gap:8px; }
+
+  .save-indicator{
+    position:fixed; top:calc(env(safe-area-inset-top, 0px) + 10px); left:50%; transform:translateX(-50%) translateY(-8px);
+    z-index:9999; padding:6px 14px; border-radius:999px; font-size:12px; font-weight:700;
+    opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease;
+    box-shadow:0 2px 10px rgba(0,0,0,.18);
+  }
+  .save-indicator.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .save-indicator.saving{ background:var(--surface-lowest); color:var(--on-surface-variant); border:1px solid var(--border-subtle); }
+  .save-indicator.saved{ background:var(--profit-bg); color:var(--profit-green); }
+  .save-indicator.error{ background:var(--loss-bg); color:var(--loss-red); }
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="save-indicator" class="save-indicator" aria-live="polite"></div>
 
 <script>
 // ─── Design tokens ──────────────────────────────────────────────────────────
@@ -292,6 +304,56 @@ function applyTheme() {
   document.documentElement.setAttribute("data-theme", state.theme);
 }
 
+// ─── Save status indicator ──────────────────────────────────────────────────
+// Every write to persistent storage is fire-and-forget by nature (we don't
+// want typing/tapping to block on network I/O). That's fine for "did the
+// state get updated", but it means silent failures (offline, storage quota,
+// etc.) would otherwise go completely unnoticed — you'd keep using the app
+// thinking everything is saved when it isn't. This makes save state visible.
+let pendingSaveCount = 0;
+let saveHadError = false;
+let saveIndicatorHideTimer = null;
+function showSaveStatus(status) {
+  const el = document.getElementById("save-indicator");
+  if (!el) return;
+  if (saveIndicatorHideTimer) { clearTimeout(saveIndicatorHideTimer); saveIndicatorHideTimer = null; }
+  if (status === "saving") {
+    el.textContent = "Guardando…";
+    el.className = "save-indicator show saving";
+  } else if (status === "saved") {
+    el.textContent = "Guardado";
+    el.className = "save-indicator show saved";
+    saveIndicatorHideTimer = setTimeout(() => { el.className = "save-indicator"; }, 1100);
+  } else if (status === "error") {
+    el.textContent = "No se pudo guardar — revisa tu conexión";
+    el.className = "save-indicator show error";
+    // Un error se queda visible más tiempo que un guardado exitoso: es más
+    // importante que el usuario lo note, no queremos que pase inadvertido.
+    saveIndicatorHideTimer = setTimeout(() => { el.className = "save-indicator"; }, 4000);
+  }
+}
+
+async function persist(key, value) {
+  pendingSaveCount++;
+  showSaveStatus("saving");
+  let ok = false;
+  try {
+    const result = await window.storage.set(key, value, false);
+    if (!result) throw new Error("storage.set returned no result");
+    ok = true;
+  } catch (err) {
+    saveHadError = true;
+    showSaveStatus("error");
+  } finally {
+    pendingSaveCount--;
+    if (pendingSaveCount === 0) {
+      if (!saveHadError) showSaveStatus("saved");
+      saveHadError = false;
+    }
+  }
+  return ok;
+}
+
 // ─── Storage ────────────────────────────────────────────────────────────────
 async function loadData() {
   try {
@@ -317,18 +379,12 @@ async function loadData() {
   state.loading = false;
   render();
 }
-async function saveApuestas() {
-  try { await window.storage.set("libro_apuestas_v1", JSON.stringify(state.apuestas), false); } catch (_) {}
-}
-async function saveMovimientos() {
-  try { await window.storage.set("libro_movimientos_v1", JSON.stringify(state.movimientos), false); } catch (_) {}
-}
-async function saveConfig() {
-  try { await window.storage.set("libro_config_v1", JSON.stringify(state.config), false); } catch (_) {}
-}
-async function saveTheme() {
-  try { await window.storage.set("libro_theme_v1", state.theme, false); } catch (_) {}
-}
+async function saveApuestas() { return persist("libro_apuestas_v1", JSON.stringify(state.apuestas)); }
+async function saveMovimientos() { return persist("libro_movimientos_v1", JSON.stringify(state.movimientos)); }
+async function saveConfig() { return persist("libro_config_v1", JSON.stringify(state.config)); }
+async function saveTheme() { return persist("libro_theme_v1", state.theme); }
+
+
 
 // ─── Derived data ───────────────────────────────────────────────────────────
 function computeStats() {
@@ -1568,6 +1624,24 @@ function scheduleSaveConfig(delay = 500) {
   if (saveConfigTimer) clearTimeout(saveConfigTimer);
   saveConfigTimer = setTimeout(saveConfig, delay);
 }
+
+// Si el usuario cierra la pestaña, cambia de app, o bloquea el teléfono justo
+// después de escribir en Ajustes, ese cambio todavía puede estar esperando su
+// turno en el debounce de arriba (hasta 500ms). Lo forzamos a guardarse de
+// inmediato apenas la pestaña deja de estar visible, en vez de esperar a que
+// el temporizador termine por su cuenta — así no depende de que el usuario
+// se quede esos 500ms con la app abierta.
+function flushPendingSaves() {
+  if (saveConfigTimer) {
+    clearTimeout(saveConfigTimer);
+    saveConfigTimer = null;
+    saveConfig();
+  }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushPendingSaves();
+});
+window.addEventListener("pagehide", flushPendingSaves);
 
 function render() {
   if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
