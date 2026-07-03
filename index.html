@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>BetTracker Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --primary:#041534;
+    --on-primary:#ffffff;
+    --primary-container:#1b2a4a;
+    --on-primary-container:#8392b7;
+    --secondary:#1d6393;
+    --surface-muted:#F7F8FA;
+    --surface-lowest:#ffffff;
+    --surface-low:#f1f3ff;
+    --surface-container:#e9edff;
+    --on-surface:#141b2b;
+    --on-surface-variant:#45464e;
+    --outline:#75777f;
+    --outline-variant:#c5c6cf;
+    --border-subtle:#E5E7EB;
+    --profit-green:#16A34A;
+    --profit-bg:#F0FDF4;
+    --loss-red:#DC2626;
+    --loss-bg:#FEF2F2;
+    --pending-orange:#D97706;
+    --pending-bg:#FFFBEB;
+    --font:'Hanken Grotesk','Segoe UI',system-ui,sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--surface-muted);
+    font-family:var(--font);
+    color:var(--on-surface);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  button, input, select{ font-family:var(--font); }
+  button{ background:none; }
+
+  .topbar{ position:fixed; top:0; left:0; right:0; z-index:40; background:var(--surface-lowest); border-bottom:1px solid var(--border-subtle); }
+  .topbar-inner{ max-width:600px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; padding:13px 16px; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand-badge{ width:34px; height:34px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; }
+  .brand-title{ font-size:18px; font-weight:700; color:var(--primary); }
+
+  .pill{ display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+  .pill-lg{ padding:5px 12px; font-size:10px; }
+  .pill-pending{ background:var(--pending-bg); color:var(--pending-orange); border:1px solid rgba(217,119,6,.2); }
+  .pill-danger{ background:var(--loss-bg); color:var(--loss-red); border:1px solid rgba(220,38,38,.2); }
+
+  .content{ max-width:600px; margin:0 auto; padding:80px 14px 118px; }
+
+  .card{ background:var(--surface-lowest); border:1px solid var(--border-subtle); border-radius:12px; }
+  .label-caps{ font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--on-surface-variant); display:block; }
+  .headline-md{ font-size:18px; font-weight:700; color:var(--primary); margin:0 0 12px; }
+  .stat-value{ font-size:17px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .display-balance{ font-size:32px; font-weight:900; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+
+  .hero{ border-radius:16px; padding:24px; position:relative; overflow:hidden; margin-bottom:16px; }
+  .hero-icon{ position:absolute; right:-16px; bottom:-20px; opacity:.05; color:var(--primary); }
+  .hero-row{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-top:6px; }
+
+  .stats-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .stat-card{ border-radius:12px; padding:14px 16px; border:1px solid var(--border-subtle); background:var(--surface-lowest); }
+  .stat-card .sub{ font-size:11px; color:var(--on-surface-variant); margin-top:3px; }
+
+  .streak-card{ padding:14px 16px; margin-bottom:14px; }
+  .streak-row{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .streak-dot{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .streak-note{ margin-left:6px; font-size:12px; color:var(--on-surface-variant); }
+
+  .chart-card{ padding:14px 16px; margin-bottom:14px; }
+  .chart-empty{ text-align:center; padding:30px 0; color:var(--outline-variant); font-size:13px; }
+  .chart-wrap{ position:relative; width:100%; height:180px; }
+  .chart-floating{ position:absolute; top:0; right:0; background:rgba(255,255,255,.88); backdrop-filter:blur(4px); border:1px solid var(--border-subtle); padding:6px 10px; border-radius:8px; }
+  .chart-floating .lbl{ font-size:9px; font-weight:700; color:var(--on-surface-variant); letter-spacing:.05em; text-transform:uppercase; }
+  .chart-floating .val{ font-size:14px; font-weight:800; color:var(--primary); }
+  .chart-axis{ display:flex; justify-content:space-between; margin-top:4px; font-size:9px; color:var(--outline-variant); font-weight:700; }
+
+  .activity-card{ padding:16px; }
+  .activity-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:var(--surface-muted); border-radius:10px; border:1px solid var(--border-subtle); }
+  .activity-left{ display:flex; align-items:center; gap:10px; }
+  .activity-icon{ border-radius:8px; padding:6px; display:flex; }
+  .activity-label{ font-size:13px; font-weight:700; color:var(--on-surface); }
+  .activity-date{ font-size:10px; font-weight:700; color:var(--on-surface-variant); letter-spacing:.3px; }
+
+  .alert-banner{ display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; margin-bottom:14px; font-size:12px; font-weight:700; line-height:1.4; }
+
+  .field{ margin-bottom:14px; }
+  .field label{ margin-bottom:6px; }
+  .input{ width:100%; padding:10px 12px; border:1.5px solid var(--border-subtle); border-radius:8px; font-size:14px; background:var(--surface-low); color:var(--on-surface); outline:none; box-sizing:border-box; transition:border-color .12s; }
+  .input:focus{ border-color:var(--primary); }
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .btn{ border:none; border-radius:10px; padding:14px; font-size:14px; font-weight:800; cursor:pointer; color:#fff; width:100%; letter-spacing:.3px; display:flex; align-items:center; justify-content:center; gap:8px; }
+
+  .preview-box{ background:var(--profit-bg); border:1.5px solid #BBF7D0; border-radius:10px; padding:12px 14px; margin-bottom:16px; }
+  .preview-row{ display:flex; justify-content:space-between; align-items:center; }
+
+  .chips-row{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; align-items:center; }
+  .chip{ padding:5px 12px; border-radius:999px; border:1.5px solid var(--border-subtle); background:var(--surface-lowest); color:var(--outline); font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; transition:all .15s; }
+
+  .leg-row{ display:flex; gap:6px; align-items:center; margin-bottom:8px; }
+  .leg-desc{ flex:2; }
+  .leg-cuota{ flex:1; }
+  .leg-item{ display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px dashed var(--border-subtle); }
+  .leg-btn{ border:none; border-radius:6px; padding:4px 6px; cursor:pointer; display:flex; align-items:center; }
+  .combo-cuota-box{ font-size:12px; color:var(--on-surface-variant); margin-top:6px; }
+
+  .ghost-btn{ border:1px solid var(--border-subtle); background:#fff; color:var(--on-surface-variant); font-size:10px; font-weight:700; padding:5px 9px; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:4px; }
+  .tag-pill{ font-size:10px; font-weight:700; background:var(--surface-container); color:var(--primary); padding:2px 8px; border-radius:999px; }
+  .note-block{ font-size:11px; color:var(--on-surface-variant); margin-top:6px; background:var(--surface-muted); padding:6px 8px; border-radius:6px; }
+
+  .bet-card{ border-radius:12px; padding:16px; background:var(--surface-lowest); }
+  .bet-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+  .bet-desc{ font-size:13px; font-weight:700; line-height:1.3; color:var(--on-surface); }
+  .bet-meta{ font-size:11px; color:var(--on-surface-variant); margin-top:4px; }
+  .bet-sel{ font-size:11px; color:var(--on-surface-variant); margin-top:3px; font-style:italic; }
+  .bet-status-wrap{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .bet-status-pill{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; }
+  .bet-stats{ display:grid; gap:8px; }
+  .bet-stats .lbl{ font-size:9px; color:var(--on-surface-variant); font-weight:700; letter-spacing:.3px; text-transform:uppercase; }
+  .bet-stats .val{ font-size:13px; font-weight:800; margin-top:2px; font-variant-numeric:tabular-nums; }
+  .bet-actions{ display:flex; gap:8px; margin-top:12px; }
+  .bet-action-btn{ flex:1; border:none; border-radius:8px; padding:9px; font-size:12px; font-weight:700; cursor:pointer; color:#fff; display:flex; align-items:center; justify-content:center; gap:4px; }
+
+  .mov-toggle{ display:flex; gap:8px; margin-bottom:16px; }
+  .mov-toggle-btn{ flex:1; padding:10px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; background:#fff; }
+  .mov-row{ border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; }
+  .mov-avatar{ width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+  .row-between{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+
+  .bottom-nav{ position:fixed; bottom:0; left:0; right:0; background:var(--surface-lowest); border-top:1px solid var(--border-subtle); z-index:50; }
+  .bottom-nav-inner{ max-width:600px; margin:0 auto; display:flex; justify-content:space-around; align-items:center; padding:8px 2px; }
+  .nav-btn{ display:flex; flex-direction:column; align-items:center; gap:2px; border:none; cursor:pointer; background:transparent; color:var(--on-surface-variant); border-radius:10px; padding:6px 5px; transition:all .15s; }
+  .nav-btn.active{ background:var(--primary-container); color:#fff; }
+  .nav-btn span{ font-size:8.2px; font-weight:700; letter-spacing:.1px; white-space:nowrap; }
+
+  .fab{ position:fixed; bottom:82px; right:20px; width:52px; height:52px; border-radius:50%; background:var(--primary); color:#fff; border:none; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(4,21,52,.35); cursor:pointer; z-index:45; }
+
+  .delete-btn{ border:none; cursor:pointer; color:var(--outline-variant); display:flex; padding:2px; }
+  .empty-state{ text-align:center; padding:50px 0; color:var(--outline-variant); }
+  .empty-state .icon-wrap{ margin-bottom:10px; display:flex; justify-content:center; }
+  .empty-state .msg{ font-size:14px; margin-bottom:16px; color:var(--on-surface-variant); }
+  .empty-btn{ background:var(--primary); color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:13px; font-weight:700; cursor:pointer; }
+  .empty-simple{ text-align:center; padding:30px 0; color:var(--outline-variant); font-size:13px; }
+
+  .loading-screen{ display:flex; align-items:center; justify-content:center; height:100vh; color:var(--on-surface-variant); font-size:14px; }
+  .stack{ display:flex; flex-direction:column; gap:10px; }
+  .stack-8{ display:flex; flex-direction:column; gap:8px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ─── Design tokens ──────────────────────────────────────────────────────────
+const C = {
+  primary: "#041534", primaryContainer: "#1b2a4a", secondary: "#1d6393",
+  surfaceMuted: "#F7F8FA", surfaceLowest: "#ffffff", surfaceLow: "#f1f3ff", surfaceContainer: "#e9edff",
+  onSurface: "#141b2b", onSurfaceVariant: "#45464e",
+  outline: "#75777f", outlineVariant: "#c5c6cf", borderSubtle: "#E5E7EB",
+  profitGreen: "#16A34A", profitBg: "#F0FDF4",
+  lossRed: "#DC2626", lossBg: "#FEF2F2",
+  pendingOrange: "#D97706", pendingBg: "#FFFBEB",
+};
+
+const DEPORTES = ["Fútbol", "Baloncesto", "Tenis"];
+const EMOJIS = { "Fútbol": "⚽", "Baloncesto": "🏀", "Tenis": "🎾" };
+
+// ─── Icons (lucide-style inline SVG) ────────────────────────────────────────
+const ICON_PATHS = {
+  wallet: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>',
+  dashboard: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  plusCircle: '<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>',
+  history: '<path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/>',
+  arrowLeftRight: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+  arrowDown: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  arrowUp: '<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',
+  trendingUp: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+  trendingDown: '<path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/>',
+  sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  download: '<path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M20 21H4"/>',
+  barChart: '<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',
+};
+function icon(name, size = 18, color = "currentColor", sw = 2) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name] || ""}</svg>`;
+}
+
+// ─── Formatters ─────────────────────────────────────────────────────────────
+const fmt = (n) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+const fmtCompact = (n) => {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return String(Math.round(n));
+};
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const genId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// ─── State ──────────────────────────────────────────────────────────────────
+const today = new Date().toISOString().split("T")[0];
+let state = {
+  tab: "resumen",
+  loading: true,
+  apuestas: [],
+  movimientos: [],
+  config: { valorUnidad: null, limiteDiario: null, metaMensual: null },
+  kellyForm: { cuota: "", prob: "" },
+  form: {
+    descripcion: "", deporte: "Fútbol", tipo: "Simple",
+    monto: "", cuota: "", fecha: today,
+    unidades: "", etiquetas: "", nota: "", legs: [],
+  },
+  movForm: { tipo: "deposito", monto: "", nota: "", fecha: today },
+  fDeporte: "Todos",
+  fEstado: "Todos",
+  fTag: "Todas",
+  fVencidasOnly: false,
+};
+
+// ─── Storage ────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const a = await window.storage.get("libro_apuestas_v1", false);
+    if (a) state.apuestas = JSON.parse(a.value);
+  } catch (_) {}
+  try {
+    const m = await window.storage.get("libro_movimientos_v1", false);
+    if (m) state.movimientos = JSON.parse(m.value);
+  } catch (_) {}
+  try {
+    const c = await window.storage.get("libro_config_v1", false);
+    if (c) state.config = { ...state.config, ...JSON.parse(c.value) };
+  } catch (_) {}
+  state.loading = false;
+  render();
+}
+async function saveApuestas() {
+  try { await window.storage.set("libro_apuestas_v1", JSON.stringify(state.apuestas), false); } catch (_) {}
+}
+async function saveMovimientos() {
+  try { await window.storage.set("libro_movimientos_v1", JSON.stringify(state.movimientos), false); } catch (_) {}
+}
+async function saveConfig() {
+  try { await window.storage.set("libro_config_v1", JSON.stringify(state.config), false); } catch (_) {}
+}
+
+// ─── Derived data ───────────────────────────────────────────────────────────
+function computeStats() {
+  const { apuestas, movimientos } = state;
+  const depositos = movimientos.filter(m => m.tipo === "deposito").reduce((s, m) => s + m.monto, 0);
+  const retiros = movimientos.filter(m => m.tipo === "retiro").reduce((s, m) => s + m.monto, 0);
+  const ganadas = apuestas.filter(a => a.estado === "Ganada");
+  const perdidas = apuestas.filter(a => a.estado === "Perdida");
+  const pendientes = apuestas.filter(a => a.estado === "Pendiente");
+
+  const gananciaNeta = ganadas.reduce((s, a) => s + (a.cuota * a.monto - a.monto), 0);
+  const montoPerdido = perdidas.reduce((s, a) => s + a.monto, 0);
+  const saldo = depositos - retiros + gananciaNeta - montoPerdido;
+  const settledMonto = [...ganadas, ...perdidas].reduce((s, a) => s + a.monto, 0);
+  const roi = settledMonto > 0 ? ((gananciaNeta - montoPerdido) / settledMonto * 100) : 0;
+  const balance = gananciaNeta - montoPerdido;
+
+  const settled = [...apuestas].filter(a => a.estado !== "Pendiente").sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  let rachaCount = 0, rachaType = null;
+  for (const a of settled) {
+    if (!rachaType) { rachaType = a.estado; rachaCount = 1; }
+    else if (a.estado === rachaType) rachaCount++;
+    else break;
+  }
+
+  const conCLV = apuestas.filter(a => a.cuotaCierre);
+  // Ponderado por stake: una apuesta de $500.000 debe pesar más en el promedio que una de
+  // $10.000. Promediar los % de CLV "por apuesta" (como antes) trata todas las apuestas igual
+  // sin importar cuánta plata había realmente en juego, lo cual distorsiona la estimación del
+  // edge real de mercado si el usuario varía el tamaño de sus apuestas.
+  const clvMontoTotal = conCLV.reduce((s, a) => s + a.monto, 0);
+  const clvAvg = clvMontoTotal > 0
+    ? conCLV.reduce((s, a) => s + ((a.cuota / a.cuotaCierre - 1) * 100) * a.monto, 0) / clvMontoTotal
+    : null;
+
+  return { saldo, depositos, retiros, gananciaNeta, montoPerdido, balance, roi, settledMonto, rachaCount, rachaType, pendientes: pendientes.length, ganadas: ganadas.length, perdidas: perdidas.length, clvAvg };
+}
+
+function computeChartData() {
+  const { apuestas, movimientos } = state;
+  const events = [
+    ...movimientos.map(m => ({ ...m, kind: "mov" })),
+    ...apuestas.filter(a => a.estado !== "Pendiente").map(a => ({ ...a, kind: "apuesta" })),
+  ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  let saldo = 0;
+  return events.map(e => {
+    if (e.kind === "mov") saldo += e.tipo === "deposito" ? e.monto : -e.monto;
+    else if (e.estado === "Ganada") saldo += e.cuota * e.monto - e.monto;
+    else saldo -= e.monto;
+    return { fecha: e.fecha, saldo };
+  });
+}
+
+// Curva de equity "pura": solo resultados de apuestas, arrancando en 0, SIN depósitos ni retiros.
+// A diferencia de computeChartData (que mezcla flujo de caja con resultado de apuestas y sirve
+// para mostrar el saldo real), esta curva es la que hay que usar para medir riesgo/drawdown de
+// la estrategia de apuestas en sí. Depositar plata después de una racha perdedora no debería
+// "tapar" un drawdown, y retirar plata después de ganar no debería inflarlo artificialmente.
+function computeEquityCurve() {
+  const settled = [...state.apuestas]
+    .filter(a => a.estado !== "Pendiente")
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  let equity = 0;
+  return settled.map(a => {
+    equity += a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : -a.monto;
+    return { fecha: a.fecha, equity };
+  });
+}
+
+function computeLast10() {
+  return [...state.apuestas].filter(a => a.estado !== "Pendiente").sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 10).reverse();
+}
+
+function computeRecentActivity() {
+  const { apuestas, movimientos } = state;
+  const events = [
+    ...movimientos.map(m => ({ id: `m-${m.id}`, fecha: m.fecha, label: m.nota || (m.tipo === "deposito" ? "Depósito" : "Retiro"), amount: m.monto, positive: m.tipo === "deposito" })),
+    ...apuestas.filter(a => a.estado !== "Pendiente").map(a => ({ id: `a-${a.id}`, fecha: a.fecha, label: `${a.estado}: ${a.descripcion}`, amount: a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : a.monto, positive: a.estado === "Ganada" })),
+  ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  return events.slice(0, 4);
+}
+
+function computeFiltradas() {
+  const { apuestas, fDeporte, fEstado, fTag, fVencidasOnly } = state;
+  return [...apuestas]
+    .filter(a => (fDeporte === "Todos" || a.deporte === fDeporte))
+    .filter(a => (fEstado === "Todos" || a.estado === fEstado))
+    .filter(a => (fTag === "Todas" || (a.etiquetas || []).includes(fTag)))
+    .filter(a => (!fVencidasOnly || (a.estado === "Pendiente" && a.fecha < today)))
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+}
+
+function computeAllTags() {
+  const set = new Set();
+  state.apuestas.forEach(a => (a.etiquetas || []).forEach(t => set.add(t)));
+  return [...set].sort();
+}
+
+function computeVencidas() {
+  return state.apuestas.filter(a => a.estado === "Pendiente" && a.fecha < today);
+}
+
+function computeNetForDate(dateStr) {
+  const movNet = state.movimientos.filter(m => m.fecha === dateStr).reduce((s, m) => s + (m.tipo === "deposito" ? m.monto : -m.monto), 0);
+  const betNet = state.apuestas.filter(a => a.fecha === dateStr && a.estado !== "Pendiente").reduce((s, a) => s + (a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : -a.monto), 0);
+  return movNet + betNet;
+}
+
+function computeMonthProfit(refDateStr) {
+  const prefix = refDateStr.slice(0, 7); // "YYYY-MM"
+  return state.apuestas
+    .filter(a => a.estado !== "Pendiente" && a.fecha.slice(0, 7) === prefix)
+    .reduce((s, a) => s + (a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : -a.monto), 0);
+}
+
+function computeDaysLeftInMonth(refDateStr) {
+  const d = new Date(refDateStr + "T00:00:00");
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return lastDay - d.getDate();
+}
+
+function computeKelly(cuota, probPct) {
+  const b = cuota - 1;
+  const p = probPct / 100;
+  const q = 1 - p;
+  if (isNaN(b) || isNaN(p) || b <= 0 || p <= 0 || p >= 1) return null;
+  return (b * p - q) / b;
+}
+
+// Intervalo de confianza de Wilson para una proporción (winRate). Con muestras chicas, el
+// winRate observado (ej. 66% con n=3) puede estar muy lejos del winRate real de largo plazo.
+// El intervalo de Wilson da un rango más honesto que el simple "aciertos/total", especialmente
+// con n bajo (es más robusto que el intervalo normal clásico en esos casos).
+function wilsonInterval(wins, n, z = 1.96) {
+  if (n === 0) return null;
+  const p = wins / n;
+  const denom = 1 + (z * z) / n;
+  const center = p + (z * z) / (2 * n);
+  const margin = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
+  return { low: Math.max(0, (center - margin) / denom) * 100, high: Math.min(1, (center + margin) / denom) * 100 };
+}
+
+// Inversa de la CDF normal estándar (aproximación racional de Acklam, error < 1.15e-9).
+// La necesitamos para calcular el z-score correcto de un intervalo de confianza cuando
+// ajustamos por comparaciones múltiples (más abajo).
+function invNormalCDF(p) {
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+  const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+  const plow = 0.02425, phigh = 1 - plow;
+  let q, r;
+  if (p < plow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  } else if (p <= phigh) {
+    q = p - 0.5; r = q * q;
+    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+  } else {
+    q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+}
+
+// Corrección de Bonferroni: cuando mostramos m segmentos a la vez (deportes, rangos de cuota,
+// tipos), la probabilidad de que AL MENOS UNO se vea "significativo" solo por azar crece con m
+// (con 9 cortes y 95% de confianza individual, hay ~37% de chance de al menos un falso positivo).
+// Para mantener ~95% de confianza conjunta, cada intervalo individual debe construirse con un
+// alpha más chico (alpha/m), lo que da un z-score más grande y un intervalo más ancho.
+function bonferroniZ(m, alpha = 0.05) {
+  const mm = Math.max(1, m);
+  return invNormalCDF(1 - alpha / (2 * mm));
+}
+
+// Umbral por debajo del cual consideramos la muestra "chica" y avisamos al usuario para que no
+// sobre-interprete la varianza como una señal real (ej. "estoy rindiendo bien en tenis" con n=4).
+const MUESTRA_CHICA_N = 15;
+
+// Yield en unidades: el estándar en tracking de tipsters. A diferencia del ROI en dinero
+// (balance / monto apostado), acá el "stake" de cada apuesta es el valor que el usuario declaró
+// en el campo `unidades` (su nivel de convicción relativo), no el monto en pesos. Esto importa
+// porque si el bankroll crece y el usuario apuesta más plata en términos absolutos manteniendo
+// el mismo nivel de convicción, el ROI en $ queda dominado por las apuestas más recientes/grandes,
+// mientras que el yield en unidades es comparable a lo largo del tiempo independientemente de
+// cómo haya crecido el bankroll. Solo cuenta apuestas donde el usuario cargó `unidades`.
+function computeYield() {
+  const settledAll = state.apuestas.filter(a => a.estado !== "Pendiente");
+  const settled = settledAll.filter(a => a.unidades != null && a.unidades > 0);
+  if (settled.length === 0) return null;
+  const stakeTotal = settled.reduce((s, a) => s + a.unidades, 0);
+  const profitTotal = settled.reduce((s, a) => s + (a.estado === "Ganada" ? (a.cuota - 1) * a.unidades : -a.unidades), 0);
+  const yieldPct = stakeTotal > 0 ? (profitTotal / stakeTotal) * 100 : 0;
+  return { count: settled.length, totalSettled: settledAll.length, stakeTotal, profitTotal, yieldPct, cobertura: (settled.length / settledAll.length) * 100 };
+}
+
+// Probabilidad aproximada de que una racha de longitud >= k ocurra "por azar" en n intentos
+// independientes con probabilidad de éxito p (aproximación estándar de teoría de rachas de
+// Bernoulli: P(ninguna racha de largo k) ≈ (1 - p^k)^(n-k+1)). No es exacta pero es suficiente
+// para dar contexto: rachas de 4-5 son completamente normales incluso con buen win rate si ya
+// hiciste 50+ apuestas, y esto evita que el usuario le atribuya la racha a "estoy jugando mal"
+// o "tengo mala suerte" cuando en realidad es varianza esperada.
+function probStreakAtLeast(k, n, p) {
+  if (p <= 0 || p >= 1 || k <= 0) return 0;
+  if (n < k) return 0;
+  const noRun = Math.pow(1 - Math.pow(p, k), n - k + 1);
+  return Math.max(0, Math.min(1, 1 - noRun));
+}
+
+// Contextualiza la racha actual del usuario (stats.rachaType / stats.rachaCount) contra su
+// propio historial: ¿qué tan probable era, por puro azar, ver una racha así de larga dado su
+// win rate y su cantidad total de apuestas resueltas?
+function computeStreakContext(stats) {
+  const { rachaType, rachaCount, ganadas, perdidas } = stats;
+  const n = ganadas + perdidas;
+  if (!rachaType || n === 0) return null;
+  const rate = rachaType === "Ganada" ? (ganadas / n) : (perdidas / n);
+  if (rate <= 0 || rate >= 1) return null;
+  const prob = probStreakAtLeast(rachaCount, n, rate);
+  return { rate, n, prob };
+}
+
+function computeSegmentStats(bets) {
+  const settled = bets.filter(a => a.estado !== "Pendiente");
+  const ganadas = settled.filter(a => a.estado === "Ganada");
+  const perdidas = settled.filter(a => a.estado === "Perdida");
+  const gananciaNeta = ganadas.reduce((s, a) => s + (a.cuota * a.monto - a.monto), 0);
+  const montoPerdido = perdidas.reduce((s, a) => s + a.monto, 0);
+  const balance = gananciaNeta - montoPerdido;
+  const montoApostado = settled.reduce((s, a) => s + a.monto, 0);
+  const roi = montoApostado > 0 ? (balance / montoApostado * 100) : 0;
+  const winRate = settled.length > 0 ? (ganadas.length / settled.length * 100) : 0;
+  const winRateCI = wilsonInterval(ganadas.length, settled.length);
+  const muestraChica = settled.length < MUESTRA_CHICA_N;
+  const profitFactor = computeProfitFactor(bets);
+  const breakEven = computeBreakEven(bets);
+  return { count: settled.length, ganadas: ganadas.length, perdidas: perdidas.length, balance, roi, winRate, winRateCI, muestraChica, montoApostado, profitFactor, breakEven };
+}
+
+function computeBySport() {
+  return DEPORTES.map(d => ({ label: `${EMOJIS[d] || ""} ${d}`, ...computeSegmentStats(state.apuestas.filter(a => a.deporte === d)) }))
+    .filter(x => x.count > 0);
+}
+
+function computeByOddsRange() {
+  const buckets = [
+    { label: "Cuota < 1.50", test: c => c < 1.5 },
+    { label: "Cuota 1.50 – 2.00", test: c => c >= 1.5 && c < 2.0 },
+    { label: "Cuota 2.00 – 3.00", test: c => c >= 2.0 && c < 3.0 },
+    { label: "Cuota > 3.00", test: c => c >= 3.0 },
+  ];
+  return buckets.map(b => ({ label: b.label, ...computeSegmentStats(state.apuestas.filter(a => b.test(a.cuota))) }))
+    .filter(x => x.count > 0);
+}
+
+function computeByType() {
+  return ["Simple", "Combinada"].map(t => ({ label: t, ...computeSegmentStats(state.apuestas.filter(a => a.tipo === t)) }))
+    .filter(x => x.count > 0);
+}
+
+function computeBreakEven(bets = state.apuestas) {
+  const settled = bets.filter(a => a.estado !== "Pendiente");
+  if (settled.length === 0) return null;
+  const avgCuota = settled.reduce((s, a) => s + a.cuota, 0) / settled.length;
+  // Break-even correcto = promedio de las probabilidades implícitas (1/cuota) de cada apuesta,
+  // NO 1/(cuota promedio). Con cuotas mixtas ambos números difieren (desigualdad de Jensen),
+  // y el segundo subestima el win rate necesario para ser rentable.
+  const breakEven = settled.reduce((s, a) => s + (a.cuota > 0 ? 1 / a.cuota : 0), 0) / settled.length * 100;
+  const ganadas = settled.filter(a => a.estado === "Ganada").length;
+  const actual = (ganadas / settled.length) * 100;
+  return { avgCuota, breakEven, actual, edge: actual - breakEven };
+}
+
+function computeProfitFactor(bets = state.apuestas) {
+  const ganadas = bets.filter(a => a.estado === "Ganada");
+  const perdidas = bets.filter(a => a.estado === "Perdida");
+  if (ganadas.length === 0 && perdidas.length === 0) return null;
+  const grossProfit = ganadas.reduce((s, a) => s + (a.cuota * a.monto - a.monto), 0);
+  const grossLoss = perdidas.reduce((s, a) => s + a.monto, 0);
+  if (grossLoss === 0) return grossProfit > 0 ? Infinity : null;
+  return grossProfit / grossLoss;
+}
+
+function computeDrawdown() {
+  const equityCurve = computeEquityCurve();
+  if (equityCurve.length === 0) return null;
+  let peak = equityCurve[0].equity, peakDate = equityCurve[0].fecha;
+  let maxDD = 0, maxDDPct = 0, ddPeakDate = equityCurve[0].fecha, ddTroughDate = equityCurve[0].fecha;
+  for (let i = 0; i < equityCurve.length; i++) {
+    const v = equityCurve[i].equity;
+    if (v > peak) { peak = v; peakDate = equityCurve[i].fecha; }
+    const dd = peak - v;
+    if (dd > maxDD) {
+      maxDD = dd;
+      // % relativo al pico de ganancia acumulada por apuestas (no al tamaño del bankroll,
+      // que vive en computeChartData/saldo). Si el pico de equity es <= 0 (nunca estuviste
+      // en ganancia neta), el % no es un ratio significativo, así que se omite.
+      maxDDPct = peak > 0 ? (dd / peak) * 100 : 0;
+      ddPeakDate = peakDate;
+      ddTroughDate = equityCurve[i].fecha;
+    }
+  }
+  if (maxDD <= 0) return null;
+  return { maxDD, maxDDPct, ddPeakDate, ddTroughDate };
+}
+
+function computeHistoricalStreaks() {
+  const settled = [...state.apuestas].filter(a => a.estado !== "Pendiente").sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  let bestWin = 0, worstLoss = 0, curType = null, curCount = 0;
+  for (const a of settled) {
+    if (a.estado === curType) curCount++;
+    else { curType = a.estado; curCount = 1; }
+    if (curType === "Ganada") bestWin = Math.max(bestWin, curCount);
+    else worstLoss = Math.max(worstLoss, curCount);
+  }
+  return { bestWin, worstLoss };
+}
+
+function computeMonthlyROI() {
+  const settled = state.apuestas.filter(a => a.estado !== "Pendiente");
+  const map = {};
+  settled.forEach(a => {
+    const key = a.fecha.slice(0, 7);
+    if (!map[key]) map[key] = { monto: 0, balance: 0 };
+    map[key].monto += a.monto;
+    map[key].balance += a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : -a.monto;
+  });
+  return Object.keys(map).sort().map(k => ({ mes: k, roi: map[k].monto > 0 ? (map[k].balance / map[k].monto * 100) : 0, balance: map[k].balance }));
+}
+
+function computeCombinedCuota(legs) {
+  const valid = legs.filter(l => l.cuota && parseFloat(l.cuota) >= 1);
+  if (valid.length === 0) return null;
+  return valid.reduce((p, l) => p * parseFloat(l.cuota), 1);
+}
+
+function syncEstadoFromLegs(apuesta) {
+  const legs = apuesta.selecciones;
+  if (!Array.isArray(legs) || legs.length === 0) return apuesta.estado;
+  if (legs.some(l => l.resultado === "Perdida")) return "Perdida";
+  if (legs.every(l => l.resultado === "Ganada")) return "Ganada";
+  return "Pendiente";
+}
+
+// ─── CSV / Backup ───────────────────────────────────────────────────────────
+function csvEsc(s) {
+  if (s == null) return "";
+  const str = String(s);
+  return /[",\n]/.test(str) ? '"' + str.replace(/"/g, '""') + '"' : str;
+}
+function toCSVString(rows) { return rows.map(r => r.join(",")).join("\n"); }
+
+function apuestasToCSV(list) {
+  const headers = ["Fecha", "Descripcion", "Deporte", "Tipo", "Monto", "Cuota", "Unidades", "Estado", "GananciaNeta", "CuotaCierre", "CLV_%", "Etiquetas", "Nota"];
+  const rows = list.map(a => {
+    const ganancia = a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : a.estado === "Perdida" ? -a.monto : 0;
+    const clv = a.cuotaCierre ? (((a.cuota / a.cuotaCierre) - 1) * 100).toFixed(2) : "";
+    return [a.fecha, csvEsc(a.descripcion), a.deporte, a.tipo, a.monto, a.cuota, a.unidades ?? "", a.estado, ganancia, a.cuotaCierre ?? "", clv, csvEsc((a.etiquetas || []).join("|")), csvEsc(a.nota || "")];
+  });
+  return toCSVString([headers, ...rows]);
+}
+function movimientosToCSV(list) {
+  const headers = ["Fecha", "Tipo", "Monto", "Nota"];
+  const rows = list.map(m => [m.fecha, m.tipo, m.monto, csvEsc(m.nota || "")]);
+  return toCSVString([headers, ...rows]);
+}
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportBackup() {
+  const data = { apuestas: state.apuestas, movimientos: state.movimientos, config: state.config, exportedAt: new Date().toISOString() };
+  downloadFile(`bettracker_backup_${today}.json`, JSON.stringify(data, null, 2), "application/json");
+}
+function handleImportFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!confirm("Esto reemplazará tus datos actuales por los del backup. ¿Continuar?")) return;
+      state.apuestas = data.apuestas || [];
+      state.movimientos = data.movimientos || [];
+      state.config = data.config || state.config;
+      saveApuestas(); saveMovimientos(); saveConfig();
+      render();
+    } catch (err) { alert("Archivo inválido"); }
+  };
+  reader.readAsText(file);
+}
+
+// ─── Chart SVG builder ──────────────────────────────────────────────────────
+function buildChartSVG(chartData) {
+  const w = 400, h = 180, padTop = 10, padBottom = 10;
+  const vals = chartData.map(d => d.saldo);
+  const min = Math.min(...vals, 0);
+  const max = Math.max(...vals, 0);
+  const range = (max - min) || 1;
+  const stepX = w / (chartData.length - 1);
+  const points = chartData.map((d, i) => {
+    const x = i * stepX;
+    const y = padTop + (1 - (d.saldo - min) / range) * (h - padTop - padBottom);
+    return [x, y];
+  });
+  const linePath = points.map((p, i) => (i === 0 ? "M" : "L") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  const areaPath = linePath + ` L${w},${h} L0,${h} Z`;
+  const last = points[points.length - 1];
+  return `
+    <svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="gSaldo" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stop-color="${C.primary}" stop-opacity="0.14"/>
+          <stop offset="95%" stop-color="${C.primary}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaPath}" fill="url(#gSaldo)"/>
+      <path d="${linePath}" fill="none" stroke="${C.primary}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${last[0]}" cy="${last[1]}" r="4" fill="${C.profitGreen}"/>
+    </svg>`;
+}
+
+// ─── Shared render helpers ──────────────────────────────────────────────────
+function statusColors(estado) {
+  return {
+    Ganada: { color: C.profitGreen, bg: C.profitBg, border: "#BBF7D0" },
+    Perdida: { color: C.lossRed, bg: C.lossBg, border: "#FECACA" },
+    Pendiente: { color: C.pendingOrange, bg: C.pendingBg, border: "#FDE68A" },
+  }[estado];
+}
+
+function renderAlerts() {
+  const vencidas = computeVencidas();
+  const netToday = computeNetForDate(today);
+  const limiteSuperado = state.config.limiteDiario && netToday <= -Math.abs(state.config.limiteDiario);
+
+  let html = "";
+  if (vencidas.length > 0) {
+    html += `
+    <div class="alert-banner" style="background:${C.pendingBg}; border:1px solid ${C.pendingOrange}55; color:${C.pendingOrange};">
+      ${icon("alert", 18)}
+      <div style="flex:1;">Tienes <strong>${vencidas.length}</strong> apuesta${vencidas.length > 1 ? "s" : ""} vencida${vencidas.length > 1 ? "s" : ""} sin resolver.</div>
+      <button data-action="ver-vencidas" style="background:${C.pendingOrange}; color:#fff; border:none; border-radius:6px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer;">Ver</button>
+    </div>`;
+  }
+  if (limiteSuperado) {
+    html += `
+    <div class="alert-banner" style="background:${C.lossBg}; border:1px solid ${C.lossRed}55; color:${C.lossRed};">
+      ${icon("alert", 18)}
+      <div style="flex:1;">Superaste tu límite de pérdida diario (${fmt(state.config.limiteDiario)}). Hoy: ${fmt(netToday)}</div>
+    </div>`;
+  }
+  return html;
+}
+
+function renderTopbar(stats) {
+  return `
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-badge">${icon("wallet", 17, "#fff")}</div>
+        <div class="brand-title">BetTracker Pro</div>
+      </div>
+      ${stats.pendientes > 0 ? `
+        <div class="pill pill-pending">${icon("history", 12)}<span>${stats.pendientes} pend.</span></div>
+      ` : ""}
+    </div>
+  </div>`;
+}
+
+function renderResumen(stats) {
+  const chartData = computeChartData();
+  const last10 = computeLast10();
+  const recentActivity = computeRecentActivity();
+  const streakCtx = computeStreakContext(stats);
+
+  const heroColor = stats.saldo >= 0 ? C.primary : C.lossRed;
+  const balanceColor = stats.balance >= 0 ? C.profitGreen : C.lossRed;
+  const balanceTint = stats.balance >= 0 ? C.profitBg : C.lossBg;
+  const roiColor = stats.roi >= 0 ? C.profitGreen : C.lossRed;
+  const roiTint = stats.roi >= 0 ? C.profitBg : C.lossBg;
+
+  const monthProfit = computeMonthProfit(today);
+  const daysLeft = computeDaysLeftInMonth(today);
+  const meta = state.config.metaMensual;
+  const metaPct = meta && meta > 0 ? Math.min(100, Math.max(0, (monthProfit / meta) * 100)) : 0;
+  const metaBarColor = monthProfit < 0 ? C.lossRed : (metaPct >= 100 ? C.profitGreen : C.secondary);
+
+  const extraCards = [];
+  if (stats.clvAvg !== null) {
+    extraCards.push(`<div class="stat-card"><span class="label-caps">CLV promedio</span><div class="stat-value" style="color:${stats.clvAvg >= 0 ? C.profitGreen : C.lossRed}">${stats.clvAvg >= 0 ? "+" : ""}${stats.clvAvg.toFixed(1)}%</div><div class="sub">vs cuota de cierre, ponderado por stake</div></div>`);
+  }
+  if (state.config.valorUnidad) {
+    extraCards.push(`<div class="stat-card"><span class="label-caps">Saldo en unidades</span><div class="stat-value" style="color:${C.primary}">${(stats.saldo / state.config.valorUnidad).toFixed(1)}u</div><div class="sub">1u = ${fmt(state.config.valorUnidad)}</div></div>`);
+  }
+
+  return `
+  ${renderAlerts()}
+
+  <div class="card hero">
+    <span class="label-caps">Saldo total</span>
+    <div class="hero-row">
+      <div class="display-balance" style="color:${heroColor}">${fmt(stats.saldo)}</div>
+      ${stats.pendientes > 0 ? `
+        <div class="pill pill-lg pill-pending">${icon("history", 13)}<span>${stats.pendientes} pendiente${stats.pendientes > 1 ? "s" : ""}</span></div>
+      ` : ""}
+    </div>
+    <div class="hero-icon">${icon("wallet", 140)}</div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span class="label-caps">Depositado</span>
+      <div class="stat-value" style="color:${C.primary}">${fmt(stats.depositos)}</div>
+      <div class="sub">Retirado: ${fmt(stats.retiros)}</div>
+    </div>
+    <div class="stat-card">
+      <span class="label-caps">Apostado (resuelto)</span>
+      <div class="stat-value" style="color:${C.primary}">${fmt(stats.settledMonto)}</div>
+      <div class="sub">${stats.ganadas}G · ${stats.perdidas}P</div>
+    </div>
+    <div class="stat-card" style="background:${balanceTint}; border-color:${balanceColor}33;">
+      <span class="label-caps" style="color:${balanceColor}">Balance neto</span>
+      <div class="stat-value" style="color:${balanceColor}">${fmt(stats.balance)}</div>
+    </div>
+    <div class="stat-card" style="background:${roiTint}; border-color:${roiColor}33;">
+      <span class="label-caps" style="color:${roiColor}">ROI</span>
+      <div class="stat-value" style="color:${roiColor}">${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%</div>
+      <div class="sub">${stats.settledMonto > 0 ? "sobre resueltas" : "sin datos aún"}</div>
+    </div>
+  </div>
+
+  ${extraCards.length > 0 ? `
+    <div class="stats-grid">
+      ${extraCards.map(c => extraCards.length === 1 ? c.replace('class="stat-card"', 'class="stat-card" style="grid-column:1 / -1;"') : c).join("")}
+    </div>
+  ` : ""}
+
+  ${meta && meta > 0 ? `
+    <div class="card" style="padding:16px; margin-bottom:14px;">
+      <div class="row-between" style="margin-bottom:0;">
+        <span class="label-caps">Meta mensual</span>
+        <span style="font-size:11px; font-weight:700; color:${monthProfit >= 0 ? C.onSurface : C.lossRed};">${fmt(monthProfit)} / ${fmt(meta)}</span>
+      </div>
+      <div style="background:${C.surfaceContainer}; height:8px; border-radius:999px; overflow:hidden; margin-top:8px;">
+        <div style="height:100%; width:${metaPct}%; background:${metaBarColor}; transition:width .3s;"></div>
+      </div>
+      <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-top:6px;">
+        ${metaPct >= 100 ? "¡Meta cumplida este mes! 🎯" : `${metaPct.toFixed(0)}% alcanzado · ${daysLeft} día${daysLeft === 1 ? "" : "s"} restantes del mes`}
+      </div>
+    </div>
+  ` : ""}
+
+  <div class="card streak-card">
+    <span class="label-caps" style="margin-bottom:10px;">Últimos resultados</span>
+    ${last10.length === 0 ? `
+      <div style="color:${C.outlineVariant}; font-size:13px;">Sin resultados aún. Registra tu primera apuesta.</div>
+    ` : `
+      <div class="streak-row">
+        ${last10.map(a => {
+          const won = a.estado === "Ganada";
+          return `<div class="streak-dot" title="${esc(a.descripcion)}" style="background:${won ? C.profitBg : C.lossBg}; border:1.5px solid ${won ? C.profitGreen : C.lossRed}; color:${won ? C.profitGreen : C.lossRed};">${icon(won ? "check" : "x", 15, "currentColor", 3)}</div>`;
+        }).join("")}
+        ${stats.rachaType ? `
+          <div class="streak-note">— Racha de <strong style="color:${stats.rachaType === "Ganada" ? C.profitGreen : C.lossRed}">${stats.rachaCount} ${stats.rachaType === "Ganada" ? "victorias" : "pérdidas"}</strong></div>
+        ` : ""}
+      </div>
+      ${streakCtx && streakCtx.n >= 10 ? `
+      <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-top:8px; padding-top:8px; border-top:1px solid ${C.borderSubtle};">
+        ${streakCtx.prob >= 0.30
+          ? `Con tu win rate histórico (${(streakCtx.rate * 100).toFixed(0)}%), una racha así de larga es <strong>estadísticamente normal</strong> — probabilidad de ~${(streakCtx.prob * 100).toFixed(0)}% de que aparezca solo por azar en ${streakCtx.n} apuestas. No es necesariamente señal de que algo cambió.`
+          : `Con tu win rate histórico (${(streakCtx.rate * 100).toFixed(0)}%), esta racha es <strong>poco común</strong> — solo ~${(streakCtx.prob * 100).toFixed(0)}% de probabilidad de verla por puro azar en ${streakCtx.n} apuestas.`}
+      </div>` : ""}
+    `}
+  </div>
+
+  <div class="card chart-card">
+    <div class="headline-md" style="margin-bottom:14px;">Evolución del saldo</div>
+    ${chartData.length < 2 ? `
+      <div class="chart-empty">Agrega depósitos o apuestas para ver la gráfica</div>
+    ` : `
+      <div class="chart-wrap">
+        ${buildChartSVG(chartData)}
+        <div class="chart-floating">
+          <div class="lbl">Hoy</div>
+          <div class="val">${fmt(chartData[chartData.length - 1].saldo)}</div>
+        </div>
+      </div>
+      <div class="chart-axis"><span>${chartData[0].fecha}</span><span>${chartData[chartData.length - 1].fecha}</span></div>
+    `}
+  </div>
+
+  ${recentActivity.length > 0 ? `
+    <div class="card activity-card">
+      <div class="headline-md">Actividad reciente</div>
+      <div class="stack-8">
+        ${recentActivity.map(e => `
+          <div class="activity-row">
+            <div class="activity-left">
+              <div class="activity-icon" style="background:${e.positive ? C.profitBg : C.lossBg}; color:${e.positive ? C.profitGreen : C.lossRed};">${icon(e.positive ? "trendingUp" : "trendingDown", 16)}</div>
+              <div>
+                <div class="activity-label">${esc(e.label)}</div>
+                <div class="activity-date">${e.fecha}</div>
+              </div>
+            </div>
+            <div class="stat-value" style="color:${e.positive ? C.profitGreen : C.lossRed}">${e.positive ? "+" : "−"}${fmt(Math.abs(e.amount))}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  ` : ""}
+  `;
+}
+
+function renderNueva() {
+  const f = state.form;
+  const combinedCuota = f.tipo === "Combinada" ? computeCombinedCuota(f.legs) : null;
+  const effectiveCuota = f.tipo === "Simple" ? parseFloat(f.cuota) : combinedCuota;
+  const montoPrev = f.monto && effectiveCuota && effectiveCuota >= 1 ? parseFloat(f.monto) * effectiveCuota : null;
+
+  return `
+  <div class="card" style="padding:20px;">
+    <h2 class="headline-md" style="margin:0 0 20px;">Nueva apuesta</h2>
+
+    <div class="field">
+      <label class="label-caps">Descripción del evento</label>
+      <input id="input-descripcion" data-field="form.descripcion" class="input" value="${esc(f.descripcion)}" placeholder="ej. Real Madrid vs Chelsea — 1X2" />
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label class="label-caps">Deporte</label>
+        <select id="select-deporte" data-field="form.deporte" class="input">
+          ${DEPORTES.map(d => `<option value="${d}" ${f.deporte === d ? "selected" : ""}>${d}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label class="label-caps">Tipo</label>
+        <select id="select-tipo" data-field="form.tipo" class="input">
+          <option ${f.tipo === "Simple" ? "selected" : ""}>Simple</option>
+          <option ${f.tipo === "Combinada" ? "selected" : ""}>Combinada</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label-caps">Monto apostado (COP)</label>
+      <input id="input-monto" data-field="form.monto" type="number" min="0" class="input" value="${esc(f.monto)}" placeholder="50000" />
+    </div>
+
+    ${f.tipo === "Simple" ? `
+      <div class="field">
+        <label class="label-caps">Cuota decimal</label>
+        <input id="input-cuota" data-field="form.cuota" type="number" min="1" step="0.01" class="input" value="${esc(f.cuota)}" placeholder="1.85" />
+      </div>
+    ` : `
+      <div class="field">
+        <label class="label-caps">Selecciones de la combinada</label>
+        ${f.legs.map((leg, i) => `
+          <div class="leg-row">
+            <input id="leg-desc-${leg.id}" data-leg-field="descripcion" data-leg-id="${leg.id}" class="input leg-desc" placeholder="Selección ${i + 1}" value="${esc(leg.descripcion)}" />
+            <input id="leg-cuota-${leg.id}" data-leg-field="cuota" data-leg-id="${leg.id}" type="number" step="0.01" min="1" class="input leg-cuota" placeholder="Cuota" value="${esc(leg.cuota)}" />
+            <button type="button" class="delete-btn" data-action="remove-leg" data-leg-id="${leg.id}">${icon("x", 15)}</button>
+          </div>
+        `).join("")}
+        <button type="button" class="chip" data-action="add-leg">+ Agregar selección</button>
+        <div class="combo-cuota-box">Cuota combinada: <strong style="color:${C.primary};">${combinedCuota ? combinedCuota.toFixed(2) : "—"}</strong></div>
+      </div>
+    `}
+
+    <div class="grid-2">
+      <div class="field">
+        <label class="label-caps">Unidades (opcional)</label>
+        <input id="input-unidades" data-field="form.unidades" type="number" min="0" step="0.1" class="input" value="${esc(f.unidades)}" placeholder="${state.config.valorUnidad ? "ej. 1.5" : "define su valor en Ajustes"}" />
+      </div>
+      <div class="field">
+        <label class="label-caps">Etiquetas (opcional)</label>
+        <input id="input-etiquetas" data-field="form.etiquetas" class="input" value="${esc(f.etiquetas)}" placeholder="value bet, en vivo" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label-caps">Nota (opcional)</label>
+      <input id="input-nota" data-field="form.nota" class="input" value="${esc(f.nota)}" placeholder="¿Por qué tomaste esta apuesta?" />
+    </div>
+
+    <div class="field">
+      <label class="label-caps">Fecha</label>
+      <input id="input-fecha" data-field="form.fecha" type="date" class="input" value="${esc(f.fecha)}" />
+    </div>
+
+    ${montoPrev !== null ? `
+      <div class="preview-box">
+        <div class="label-caps" style="color:${C.profitGreen}; margin-bottom:4px;">Previsualización</div>
+        <div class="preview-row">
+          <div>
+            <div style="font-size:11px; color:${C.onSurfaceVariant};">Ganancia total si ganas</div>
+            <div style="font-size:22px; font-weight:900; color:${C.profitGreen};">${fmt(montoPrev)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px; color:${C.onSurfaceVariant};">Ganancia neta</div>
+            <div style="font-size:16px; font-weight:800; color:${C.profitGreen};">+${fmt(montoPrev - parseFloat(f.monto))}</div>
+          </div>
+        </div>
+      </div>
+    ` : ""}
+
+    <button class="btn" style="background:${C.primary};" data-action="add-apuesta">Registrar apuesta →</button>
+  </div>
+  `;
+}
+
+function renderHistorial() {
+  const filtradas = computeFiltradas();
+  const allTags = computeAllTags();
+  const vencidasCount = computeVencidas().length;
+
+  return `
+  ${renderAlerts()}
+
+  <div class="row-between">
+    <span class="label-caps">Filtros</span>
+    <button class="ghost-btn" data-action="export-historial-csv">${icon("download", 12)} Exportar CSV</button>
+  </div>
+
+  <div class="chips-row">
+    ${["Todos", ...DEPORTES].map(d => `<button class="chip" data-action="set-fdeporte" data-value="${d}" style="${state.fDeporte === d ? `border-color:${C.primary}; background:${C.primary}18; color:${C.primary};` : ""}">${d}</button>`).join("")}
+  </div>
+  <div class="chips-row">
+    ${[["Todos", C.primary], ["Pendiente", C.pendingOrange], ["Ganada", C.profitGreen], ["Perdida", C.lossRed]].map(([e, c]) => `<button class="chip" data-action="set-festado" data-value="${e}" style="${state.fEstado === e ? `border-color:${c}; background:${c}18; color:${c};` : ""}">${e}</button>`).join("")}
+    ${vencidasCount > 0 ? `<button class="chip" data-action="toggle-vencidas" style="${state.fVencidasOnly ? `border-color:${C.pendingOrange}; background:${C.pendingOrange}18; color:${C.pendingOrange};` : ""}">${icon("alert", 12)} Vencidas (${vencidasCount})</button>` : ""}
+  </div>
+  ${allTags.length > 0 ? `
+    <div class="chips-row" style="margin-bottom:16px;">
+      ${["Todas", ...allTags].map(t => `<button class="chip" data-action="set-ftag" data-value="${t}" style="${state.fTag === t ? `border-color:${C.secondary}; background:${C.secondary}18; color:${C.secondary};` : ""}">${esc(t)}</button>`).join("")}
+    </div>
+  ` : `<div style="margin-bottom:6px;"></div>`}
+
+  ${filtradas.length === 0 ? `
+    <div class="empty-state">
+      <div class="icon-wrap">${icon("history", 38, C.outlineVariant)}</div>
+      <div class="msg">${state.apuestas.length === 0 ? "Sin apuestas registradas" : "Ninguna apuesta con estos filtros"}</div>
+      ${state.apuestas.length === 0 ? `<button class="empty-btn" data-action="set-tab" data-tab="nueva">Registrar primera apuesta</button>` : ""}
+    </div>
+  ` : `
+    <div class="stack">
+      ${filtradas.map(a => renderBetCard(a)).join("")}
+    </div>
+  `}
+  `;
+}
+
+function renderBetCard(a) {
+  const meta = statusColors(a.estado);
+  const gananciaTotal = a.monto * a.cuota;
+  const clv = a.cuotaCierre ? ((a.cuota / a.cuotaCierre - 1) * 100) : null;
+  const hasLegs = Array.isArray(a.selecciones) && a.selecciones.length > 0;
+  const oldTextSel = (!hasLegs && typeof a.selecciones === "string" && a.selecciones) ? a.selecciones : null;
+  const isVencida = a.estado === "Pendiente" && a.fecha < today;
+  const cols = a.unidades ? 4 : 3;
+
+  return `
+  <div class="bet-card" style="border:1.5px solid ${isVencida ? "#FECACA" : meta.border};">
+    <div class="bet-top">
+      <div style="flex:1; padding-right:8px;">
+        <div class="bet-desc">${esc(a.descripcion)}</div>
+        <div class="bet-meta">${EMOJIS[a.deporte] || ""} ${a.deporte} · ${a.tipo} · ${a.fecha}</div>
+        ${oldTextSel ? `<div class="bet-sel">"${esc(oldTextSel)}"</div>` : ""}
+      </div>
+      <div class="bet-status-wrap">
+        ${isVencida ? `<span class="bet-status-pill" style="color:${C.lossRed}; background:${C.lossBg};">Vencida</span>` : ""}
+        <span class="bet-status-pill" style="color:${meta.color}; background:${meta.bg};">${a.estado}</span>
+        <button class="delete-btn" data-action="delete-apuesta" data-id="${a.id}">${icon("x", 15)}</button>
+      </div>
+    </div>
+
+    ${hasLegs ? `
+      <div style="margin-bottom:10px;">
+        ${a.selecciones.map(leg => `
+          <div class="leg-item">
+            <div style="font-size:12px; color:${C.onSurface}; flex:1;">${esc(leg.descripcion)} <span style="color:${C.onSurfaceVariant}; font-weight:700;">@${Number(leg.cuota).toFixed(2)}</span></div>
+            ${a.estado === "Pendiente" ? `
+              <div style="display:flex; gap:4px;">
+                <button class="leg-btn" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Ganada" style="background:${C.profitBg}; color:${C.profitGreen};">${icon("check", 12)}</button>
+                <button class="leg-btn" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Perdida" style="background:${C.lossBg}; color:${C.lossRed};">${icon("x", 12)}</button>
+              </div>
+            ` : `<span style="font-size:10px; font-weight:700; color:${leg.resultado === "Ganada" ? C.profitGreen : leg.resultado === "Perdida" ? C.lossRed : C.pendingOrange};">${leg.resultado}</span>`}
+          </div>
+        `).join("")}
+      </div>
+    ` : ""}
+
+    ${a.etiquetas && a.etiquetas.length ? `<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;">${a.etiquetas.map(t => `<span class="tag-pill">${esc(t)}</span>`).join("")}</div>` : ""}
+    ${a.nota ? `<div class="note-block">📝 ${esc(a.nota)}</div>` : ""}
+
+    <div class="bet-stats" style="grid-template-columns:repeat(${cols},1fr); margin-top:10px; margin-bottom:${(!hasLegs && a.estado === "Pendiente") ? "12px" : "0"};">
+      <div><div class="lbl">Apostado</div><div class="val" style="color:${C.onSurface}">${fmt(a.monto)}</div></div>
+      <div><div class="lbl">Cuota</div><div class="val" style="color:${C.primary}">${a.cuota.toFixed(2)}</div></div>
+      <div><div class="lbl">Potencial</div><div class="val" style="color:${C.profitGreen}">${fmt(gananciaTotal)}</div></div>
+      ${a.unidades ? `<div><div class="lbl">Stake</div><div class="val" style="color:${C.secondary}">${a.unidades}u</div></div>` : ""}
+    </div>
+
+    ${(!hasLegs && a.estado === "Pendiente") ? `
+      <div class="bet-actions">
+        <button class="bet-action-btn" style="background:${C.profitGreen}" data-action="set-estado" data-id="${a.id}" data-estado="Ganada">${icon("check", 13)} Ganada</button>
+        <button class="bet-action-btn" style="background:${C.lossRed}" data-action="set-estado" data-id="${a.id}" data-estado="Perdida">${icon("x", 13)} Perdida</button>
+      </div>
+    ` : ""}
+
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button class="ghost-btn" data-action="edit-clv" data-id="${a.id}">${icon("trendingUp", 12)} ${clv !== null ? `CLV ${clv >= 0 ? "+" : ""}${clv.toFixed(1)}%` : "Cuota cierre"}</button>
+      <button class="ghost-btn" data-action="edit-nota" data-id="${a.id}">📝 ${a.nota ? "Editar nota" : "Añadir nota"}</button>
+    </div>
+  </div>
+  `;
+}
+
+function renderMovimientos() {
+  const mv = state.movForm;
+  const sorted = [...state.movimientos].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  return `
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <h2 class="headline-md" style="margin:0 0 16px;">Registrar movimiento</h2>
+
+    <div class="mov-toggle">
+      <button class="mov-toggle-btn" data-action="set-mov-tipo" data-tipo="deposito"
+        style="border:2px solid ${mv.tipo === "deposito" ? C.profitGreen : C.borderSubtle}; background:${mv.tipo === "deposito" ? C.profitGreen + "12" : "#fff"}; color:${mv.tipo === "deposito" ? C.profitGreen : C.outline};">
+        ${icon("arrowDown", 14)} Depósito
+      </button>
+      <button class="mov-toggle-btn" data-action="set-mov-tipo" data-tipo="retiro"
+        style="border:2px solid ${mv.tipo === "retiro" ? C.lossRed : C.borderSubtle}; background:${mv.tipo === "retiro" ? C.lossRed + "12" : "#fff"}; color:${mv.tipo === "retiro" ? C.lossRed : C.outline};">
+        ${icon("arrowUp", 14)} Retiro
+      </button>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label class="label-caps">Monto (COP)</label>
+        <input id="input-mov-monto" data-field="movForm.monto" type="number" min="0" class="input" value="${esc(mv.monto)}" placeholder="100000" />
+      </div>
+      <div class="field">
+        <label class="label-caps">Fecha</label>
+        <input id="input-mov-fecha" data-field="movForm.fecha" type="date" class="input" value="${esc(mv.fecha)}" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label-caps">Nota (opcional)</label>
+      <input id="input-mov-nota" data-field="movForm.nota" class="input" value="${esc(mv.nota)}" placeholder="ej. Depósito Bet365" />
+    </div>
+
+    <button class="btn" style="background:${mv.tipo === "deposito" ? C.profitGreen : C.lossRed}" data-action="add-movimiento">
+      Registrar ${mv.tipo === "deposito" ? "depósito" : "retiro"} →
+    </button>
+  </div>
+
+  <div class="row-between">
+    <span class="label-caps">Historial</span>
+    ${sorted.length > 0 ? `<button class="ghost-btn" data-action="export-movimientos-csv-tab">${icon("download", 12)} Exportar CSV</button>` : ""}
+  </div>
+  ${sorted.length === 0 ? `
+    <div class="empty-simple">Sin movimientos aún</div>
+  ` : `
+    <div class="stack-8">
+      ${sorted.map(m => `
+        <div class="card mov-row">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="mov-avatar" style="background:${m.tipo === "deposito" ? C.profitBg : C.lossBg}; color:${m.tipo === "deposito" ? C.profitGreen : C.lossRed};">${icon(m.tipo === "deposito" ? "arrowDown" : "arrowUp", 17)}</div>
+            <div>
+              <div style="font-size:13px; font-weight:600; color:${C.onSurface};">${esc(m.nota) || (m.tipo === "deposito" ? "Depósito" : "Retiro")}</div>
+              <div style="font-size:11px; color:${C.onSurfaceVariant};">${m.fecha}</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:14px; font-weight:800; color:${m.tipo === "deposito" ? C.profitGreen : C.lossRed}; font-variant-numeric:tabular-nums;">${m.tipo === "deposito" ? "+" : "−"}${fmt(m.monto)}</div>
+            <button class="delete-btn" data-action="delete-movimiento" data-id="${m.id}">${icon("x", 15)}</button>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `}
+  `;
+}
+
+function renderKellyResult(stats) {
+  const kf = state.kellyForm;
+  if (!kf.cuota || !kf.prob) {
+    return `<div style="font-size:12px; color:${C.onSurfaceVariant}; margin-top:2px;">Ingresa la cuota y tu probabilidad estimada para ver el tamaño de apuesta sugerido.</div>`;
+  }
+  const f = computeKelly(parseFloat(kf.cuota), parseFloat(kf.prob));
+  if (f === null) {
+    return `<div style="font-size:12px; color:${C.onSurfaceVariant}; margin-top:2px;">Datos inválidos: la cuota debe ser mayor a 1 y la probabilidad entre 1% y 99%.</div>`;
+  }
+  if (f <= 0) {
+    return `
+    <div class="alert-banner" style="background:${C.lossBg}; border:1px solid ${C.lossRed}55; color:${C.lossRed}; margin-top:4px; margin-bottom:0;">
+      ${icon("alert", 16)}
+      <div>Con estos datos no hay valor esperado positivo — Kelly recomienda <strong>no apostar</strong>.</div>
+    </div>`;
+  }
+  const saldo = stats.saldo;
+  const fullPct = (f * 100).toFixed(1);
+  const halfPct = (f * 50).toFixed(1);
+  const fullMonto = saldo > 0 ? fmt(f * saldo) : null;
+  const halfMonto = saldo > 0 ? fmt(f * 0.5 * saldo) : null;
+  return `
+  <div class="grid-2" style="margin-top:4px;">
+    <div class="stat-card">
+      <span class="label-caps">Kelly completo</span>
+      <div class="stat-value" style="color:${C.primary}">${fullPct}%</div>
+      ${fullMonto ? `<div class="sub">${fullMonto} de tu saldo</div>` : ""}
+    </div>
+    <div class="stat-card" style="background:${C.profitBg}; border-color:${C.profitGreen}33;">
+      <span class="label-caps" style="color:${C.profitGreen}">Kelly 1/2 (sugerido)</span>
+      <div class="stat-value" style="color:${C.profitGreen}">${halfPct}%</div>
+      ${halfMonto ? `<div class="sub">${halfMonto} de tu saldo</div>` : ""}
+    </div>
+  </div>
+  <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-top:8px;">El Kelly completo maximiza el crecimiento a largo plazo pero es muy volátil. La mayoría de apostadores usan entre 1/4 y 1/2 Kelly para reducir el riesgo de ruina. Recuerda que esto depende totalmente de qué tan buena sea tu estimación de probabilidad.</div>
+  `;
+}
+
+function renderAjustes(stats) {
+  const cfg = state.config;
+  return `
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <h2 class="headline-md" style="margin:0 0 16px;">Gestión de banca</h2>
+    <div class="field">
+      <label class="label-caps">Valor de 1 unidad (COP)</label>
+      <input id="input-valor-unidad" data-field="config.valorUnidad" type="number" min="0" class="input" value="${cfg.valorUnidad ?? ""}" placeholder="ej. 50000" />
+    </div>
+    <div class="field">
+      <label class="label-caps">Límite de pérdida diario (COP, opcional)</label>
+      <input id="input-limite-diario" data-field="config.limiteDiario" type="number" min="0" class="input" value="${cfg.limiteDiario ?? ""}" placeholder="ej. 200000" />
+    </div>
+    ${cfg.valorUnidad ? `<div style="font-size:12px; color:${C.onSurfaceVariant};">Tu saldo actual equivale a <strong style="color:${C.primary}">${(stats.saldo / cfg.valorUnidad).toFixed(1)}u</strong></div>` : `<div style="font-size:12px; color:${C.onSurfaceVariant};">Define el valor de tu unidad para registrar apuestas en "u" y ver tu saldo en unidades.</div>`}
+  </div>
+
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <h2 class="headline-md" style="margin:0 0 16px;">Meta mensual</h2>
+    <div class="field">
+      <label class="label-caps">Objetivo de ganancia del mes (COP, opcional)</label>
+      <input id="input-meta-mensual" data-field="config.metaMensual" type="number" min="0" class="input" value="${cfg.metaMensual ?? ""}" placeholder="ej. 300000" />
+    </div>
+    <div style="font-size:12px; color:${C.onSurfaceVariant};">Se mostrará una barra de progreso en Resumen comparando tu ganancia neta de apuestas del mes contra esta meta.</div>
+  </div>
+
+  <div class="card" style="padding:20px; margin-bottom:16px;">
+    <h2 class="headline-md" style="margin:0 0 4px;">Calculadora de Kelly</h2>
+    <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-bottom:14px;">Sugiere qué porcentaje de tu banca apostar según la cuota y tu probabilidad estimada de ganar.</div>
+    <div class="grid-2">
+      <div class="field">
+        <label class="label-caps">Cuota decimal</label>
+        <input id="input-kelly-cuota" data-field="kellyForm.cuota" type="number" min="1" step="0.01" class="input" value="${esc(state.kellyForm.cuota)}" placeholder="1.85" />
+      </div>
+      <div class="field">
+        <label class="label-caps">Probabilidad estimada (%)</label>
+        <input id="input-kelly-prob" data-field="kellyForm.prob" type="number" min="1" max="99" step="1" class="input" value="${esc(state.kellyForm.prob)}" placeholder="55" />
+      </div>
+    </div>
+    ${renderKellyResult(stats)}
+  </div>
+
+  <div class="card" style="padding:20px;">
+    <h2 class="headline-md" style="margin:0 0 16px;">Exportar / respaldo</h2>
+    <div class="stack-8">
+      <button class="btn" style="background:${C.primary};" data-action="export-apuestas-csv">${icon("download", 14)} Exportar apuestas (CSV)</button>
+      <button class="btn" style="background:${C.secondary};" data-action="export-movimientos-csv">${icon("download", 14)} Exportar movimientos (CSV)</button>
+      <button class="btn" style="background:${C.onSurfaceVariant};" data-action="export-backup">${icon("download", 14)} Exportar backup completo (JSON)</button>
+      <label class="btn" style="background:#fff; color:${C.primary}; border:1.5px solid ${C.borderSubtle};">
+        Importar backup (JSON)
+        <input id="import-file-input" type="file" accept="application/json" style="display:none;" />
+      </label>
+    </div>
+  </div>
+  `;
+}
+
+function renderSegmentRow(label, seg) {
+  const color = seg.roi >= 0 ? C.profitGreen : C.lossRed;
+  const barWidth = Math.min(100, Math.abs(seg.roi));
+  const rowOpacity = seg.muestraChica ? 0.6 : 1;
+  const chicaBadge = seg.muestraChica
+    ? `<span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:${C.pendingOrange}; background:${C.pendingBg}; border:1px solid rgba(217,119,6,.25); border-radius:999px; padding:1px 6px; margin-left:6px;">muestra chica</span>`
+    : "";
+  // sigAdjusted: el edge de este segmento sigue siendo distinto del break-even incluso con el
+  // intervalo ensanchado por Bonferroni (ver banner explicativo arriba). sigNaive && !sigAdjusted
+  // es justamente el caso a marcar: "se ve significativo mirado solo, pero no si consideramos
+  // que estamos mirando varios cortes a la vez" — el segmento más propenso a ser un falso positivo.
+  const robustoBadge = seg.sigAdjusted
+    ? `<span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:${C.secondary}; background:${C.surfaceLow}; border:1px solid ${C.secondary}44; border-radius:999px; padding:1px 6px; margin-left:6px;">edge robusto</span>`
+    : (seg.sigNaive
+      ? `<span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:${C.onSurfaceVariant}; background:${C.surfaceContainer}; border:1px solid ${C.outlineVariant}; border-radius:999px; padding:1px 6px; margin-left:6px;" title="Se ve distinto del break-even mirado solo, pero no al ajustar por los demás cortes que estás mirando a la vez.">no sobrevive ajuste</span>`
+      : "");
+  const ciText = seg.winRateCI ? ` (IC95%: ${seg.winRateCI.low.toFixed(0)}–${seg.winRateCI.high.toFixed(0)}%)` : "";
+
+  const pf = seg.profitFactor;
+  const pfText = pf === null ? null : pf === Infinity ? "∞" : pf.toFixed(2);
+  const pfColor = pf === null ? C.onSurfaceVariant : (pf === Infinity || pf >= 1 ? C.profitGreen : C.lossRed);
+  const edge = seg.breakEven ? seg.breakEven.edge : null;
+  const edgeColor = edge !== null && edge >= 0 ? C.profitGreen : C.lossRed;
+
+  const detailLine = (pfText !== null || edge !== null) ? `
+    <div style="font-size:10px; color:${C.onSurfaceVariant}; margin-top:2px;">
+      ${pfText !== null ? `PF <strong style="color:${pfColor};">${pfText}</strong>` : ""}
+      ${pfText !== null && edge !== null ? " · " : ""}
+      ${edge !== null ? `Edge <strong style="color:${edgeColor};">${edge >= 0 ? "+" : ""}${edge.toFixed(1)}pts</strong> vs. break-even (${seg.breakEven.breakEven.toFixed(0)}%)` : ""}
+    </div>` : "";
+
+  return `
+  <div style="margin-bottom:12px; opacity:${rowOpacity};">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+      <div style="font-size:13px; font-weight:700; color:${C.onSurface};">${label}${chicaBadge}${robustoBadge}</div>
+      <div style="font-size:12px; font-weight:800; color:${color};">${seg.roi >= 0 ? "+" : ""}${seg.roi.toFixed(1)}% ROI</div>
+    </div>
+    <div style="background:${C.surfaceContainer}; height:6px; border-radius:999px; overflow:hidden; margin-bottom:4px;">
+      <div style="height:100%; width:${barWidth}%; background:${color};"></div>
+    </div>
+    <div style="font-size:10px; color:${C.onSurfaceVariant};">${seg.count} apuesta${seg.count === 1 ? "" : "s"} · ${seg.winRate.toFixed(0)}% acierto${ciText} · ${fmt(seg.balance)}</div>
+    ${detailLine}
+  </div>
+  `;
+}
+
+function renderMonthlyROIChart(months) {
+  if (months.length === 0) return `<div class="chart-empty">Aún no hay datos suficientes</div>`;
+  const maxAbs = Math.max(...months.map(m => Math.abs(m.roi)), 1);
+  return `
+  <div style="display:flex; align-items:flex-end; gap:6px; height:120px;">
+    ${months.map(m => {
+      const h = Math.max(4, (Math.abs(m.roi) / maxAbs) * 100);
+      const color = m.roi >= 0 ? C.profitGreen : C.lossRed;
+      return `
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;">
+        <div title="${m.mes}: ${m.roi >= 0 ? "+" : ""}${m.roi.toFixed(1)}%" style="width:100%; max-width:28px; height:${h}%; background:${color}; border-radius:4px 4px 0 0;"></div>
+      </div>`;
+    }).join("")}
+  </div>
+  <div style="display:flex; gap:6px; margin-top:4px;">
+    ${months.map(m => `<div style="flex:1; text-align:center; font-size:8px; color:${C.onSurfaceVariant};">${m.mes.slice(5)}</div>`).join("")}
+  </div>
+  <div style="font-size:10px; color:${C.onSurfaceVariant}; margin-top:8px;">Verde = mes con ganancia neta · Rojo = mes con pérdida neta</div>
+  `;
+}
+
+function renderEstadisticas(stats) {
+  const anySettled = state.apuestas.some(a => a.estado !== "Pendiente");
+  if (!anySettled) {
+    return `
+    <div class="empty-state">
+      <div class="icon-wrap">${icon("barChart", 38, C.outlineVariant)}</div>
+      <div class="msg">Aún no tienes apuestas resueltas. Las estadísticas aparecerán cuando marques apuestas como Ganada o Perdida.</div>
+    </div>`;
+  }
+
+  const bySport = computeBySport();
+  const byOdds = computeByOddsRange();
+  const byType = computeByType();
+  const breakEven = computeBreakEven();
+  const profitFactor = computeProfitFactor();
+  const drawdown = computeDrawdown();
+  const streaks = computeHistoricalStreaks();
+  const monthly = computeMonthlyROI();
+  const yieldData = computeYield();
+
+  // Comparaciones múltiples: estamos mostrando m segmentos a la vez (deportes + rangos de
+  // cuota + tipos). Con 95% de confianza individual por segmento, la probabilidad de que AL
+  // MENOS UNO parezca "significativo" solo por azar crece rápido con m. Ajustamos con
+  // Bonferroni (más conservador que el intervalo individual de cada fila) para distinguir qué
+  // segmentos siguen viéndose genuinamente distintos del break-even incluso bajo ese ajuste.
+  const mSegmentos = bySport.length + byOdds.length + byType.length;
+  const zAdj = bonferroniZ(mSegmentos);
+  const withSignificance = (seg) => {
+    if (!seg.breakEven || !seg.winRateCI) return { ...seg, sigNaive: false, sigAdjusted: false };
+    const beP = seg.breakEven.breakEven;
+    const ciAdj = wilsonInterval(seg.ganadas, seg.count, zAdj);
+    const sigNaive = beP < seg.winRateCI.low || beP > seg.winRateCI.high;
+    const sigAdjusted = ciAdj ? (beP < ciAdj.low || beP > ciAdj.high) : false;
+    return { ...seg, sigNaive, sigAdjusted };
+  };
+  const bySportSig = bySport.map(withSignificance);
+  const byOddsSig = byOdds.map(withSignificance);
+  const byTypeSig = byType.map(withSignificance);
+
+  return `
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span class="label-caps">Profit factor</span>
+      <div class="stat-value" style="color:${profitFactor === null ? C.onSurfaceVariant : (profitFactor === Infinity || profitFactor >= 1 ? C.profitGreen : C.lossRed)}">${profitFactor === null ? "—" : profitFactor === Infinity ? "∞" : profitFactor.toFixed(2)}</div>
+      <div class="sub">ganancia / pérdida bruta</div>
+    </div>
+    <div class="stat-card">
+      <span class="label-caps">Drawdown máximo</span>
+      <div class="stat-value" style="color:${C.lossRed}">${drawdown ? fmt(drawdown.maxDD) : "—"}</div>
+      <div class="sub">${drawdown ? drawdown.maxDDPct.toFixed(1) + "% desde el pico" : "sin caídas registradas"}</div>
+    </div>
+    <div class="stat-card">
+      <span class="label-caps">Mejor racha</span>
+      <div class="stat-value" style="color:${C.profitGreen}">${streaks.bestWin}</div>
+      <div class="sub">victorias seguidas</div>
+    </div>
+    <div class="stat-card">
+      <span class="label-caps">Peor racha</span>
+      <div class="stat-value" style="color:${C.lossRed}">${streaks.worstLoss}</div>
+      <div class="sub">pérdidas seguidas</div>
+    </div>
+  </div>
+
+  ${breakEven ? `
+  <div class="card" style="padding:16px; margin-bottom:14px;">
+    <span class="label-caps">Win rate real vs. break-even</span>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+      <div>
+        <div style="font-size:22px; font-weight:900; color:${breakEven.edge >= 0 ? C.profitGreen : C.lossRed};">${breakEven.actual.toFixed(1)}%</div>
+        <div style="font-size:10px; color:${C.onSurfaceVariant};">Tu win rate real</div>
+      </div>
+      <div style="font-size:11px; color:${C.onSurfaceVariant};">vs</div>
+      <div style="text-align:right;">
+        <div style="font-size:22px; font-weight:900; color:${C.onSurface};">${breakEven.breakEven.toFixed(1)}%</div>
+        <div style="font-size:10px; color:${C.onSurfaceVariant};">Break-even (cuota prom. ${breakEven.avgCuota.toFixed(2)})</div>
+      </div>
+    </div>
+    <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-top:10px;">
+      ${breakEven.edge >= 0
+        ? `Estás <strong style="color:${C.profitGreen}">${breakEven.edge.toFixed(1)} puntos</strong> por encima del punto de equilibrio — edge positivo.`
+        : `Estás <strong style="color:${C.lossRed}">${Math.abs(breakEven.edge).toFixed(1)} puntos</strong> por debajo del punto de equilibrio necesario para ser rentable a esas cuotas.`}
+    </div>
+  </div>` : ""}
+
+  ${yieldData ? `
+  <div class="card" style="padding:16px; margin-bottom:14px;">
+    <span class="label-caps">Yield en unidades vs. ROI en $</span>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+      <div>
+        <div style="font-size:22px; font-weight:900; color:${yieldData.yieldPct >= 0 ? C.profitGreen : C.lossRed};">${yieldData.yieldPct >= 0 ? "+" : ""}${yieldData.yieldPct.toFixed(1)}%</div>
+        <div style="font-size:10px; color:${C.onSurfaceVariant};">Yield (basado en unidades declaradas)</div>
+      </div>
+      <div style="font-size:11px; color:${C.onSurfaceVariant};">vs</div>
+      <div style="text-align:right;">
+        <div style="font-size:22px; font-weight:900; color:${stats.roi >= 0 ? C.profitGreen : C.lossRed};">${stats.roi >= 0 ? "+" : ""}${stats.roi.toFixed(1)}%</div>
+        <div style="font-size:10px; color:${C.onSurfaceVariant};">ROI (basado en monto en $)</div>
+      </div>
+    </div>
+    <div style="font-size:11px; color:${C.onSurfaceVariant}; margin-top:10px;">
+      ${yieldData.cobertura < 100
+        ? `Calculado sobre ${yieldData.count} de ${yieldData.totalSettled} apuestas resueltas (${yieldData.cobertura.toFixed(0)}%) — las que tienen "unidades" cargadas. El yield es más comparable en el tiempo que el ROI si tu stake en pesos cambió a medida que creció tu bankroll.`
+        : `El yield es más comparable en el tiempo que el ROI si tu stake en pesos cambió a medida que creció tu bankroll, porque usa tu nivel de convicción declarado (unidades) en vez del monto en $.`}
+      ${Math.abs(yieldData.yieldPct - stats.roi) > 5 ? `<br/><strong style="color:${C.pendingOrange}">La diferencia entre ambos es notable</strong> — probablemente tu tamaño de apuesta en $ no fue proporcional a tu nivel de convicción.` : ""}
+    </div>
+  </div>` : ""}
+
+  ${mSegmentos > 1 ? `
+  <div style="font-size:11px; color:${C.onSurfaceVariant}; background:${C.surfaceLow}; border:1px solid ${C.borderSubtle}; border-radius:10px; padding:10px 12px; margin-bottom:14px; line-height:1.4;">
+    ${icon("alert", 12)} Estás viendo <strong>${mSegmentos} cortes distintos</strong> de los mismos datos (deporte, cuota, tipo). Cuantos más cortes se miran a la vez, más probable es que alguno "se vea bien" solo por azar. El badge <strong>edge robusto</strong> marca los segmentos cuyo edge sigue siendo distinto del break-even incluso ajustando por esto (más exigente que mirar cada segmento aislado).
+  </div>` : ""}
+
+  ${bySport.length > 0 ? `
+  <div class="card" style="padding:16px; margin-bottom:14px;">
+    <div class="headline-md">Rendimiento por deporte</div>
+    ${bySportSig.map(s => renderSegmentRow(s.label, s)).join("")}
+  </div>` : ""}
+
+  ${byOdds.length > 0 ? `
+  <div class="card" style="padding:16px; margin-bottom:14px;">
+    <div class="headline-md">Rendimiento por rango de cuota</div>
+    ${byOddsSig.map(s => renderSegmentRow(s.label, s)).join("")}
+  </div>` : ""}
+
+  ${byType.length > 0 ? `
+  <div class="card" style="padding:16px; margin-bottom:14px;">
+    <div class="headline-md">Simple vs. Combinada</div>
+    ${byTypeSig.map(s => renderSegmentRow(s.label, s)).join("")}
+  </div>` : ""}
+
+  <div class="card" style="padding:16px;">
+    <div class="headline-md">ROI mensual</div>
+    ${renderMonthlyROIChart(monthly)}
+  </div>
+  `;
+}
+
+function renderBottomNav() {
+  const items = [
+    ["resumen", "Resumen", "dashboard"],
+    ["nueva", "Nueva", "plusCircle"],
+    ["historial", "Historial", "history"],
+    ["estadisticas", "Stats", "barChart"],
+    ["movimientos", "Movim.", "arrowLeftRight"],
+    ["ajustes", "Ajustes", "sliders"],
+  ];
+  return `
+  <nav class="bottom-nav">
+    <div class="bottom-nav-inner">
+      ${items.map(([key, lbl, ic]) => `
+        <button class="nav-btn ${state.tab === key ? "active" : ""}" data-action="set-tab" data-tab="${key}">
+          ${icon(ic, 18, "currentColor", state.tab === key ? 2.4 : 2)}
+          <span>${lbl}</span>
+        </button>
+      `).join("")}
+    </div>
+  </nav>
+  ${state.tab === "resumen" ? `<button class="fab" data-action="set-tab" data-tab="nueva">${icon("plus", 24)}</button>` : ""}
+  `;
+}
+
+// ─── Master render ──────────────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById("app");
+
+  if (state.loading) {
+    app.innerHTML = `<div class="loading-screen">Cargando...</div>`;
+    return;
+  }
+
+  const active = document.activeElement;
+  const activeId = active && active.id;
+  const selStart = active && typeof active.selectionStart === "number" ? active.selectionStart : null;
+  const selEnd = active && typeof active.selectionEnd === "number" ? active.selectionEnd : null;
+
+  const stats = computeStats();
+
+  let body = "";
+  if (state.tab === "resumen") body = renderResumen(stats);
+  else if (state.tab === "nueva") body = renderNueva();
+  else if (state.tab === "historial") body = renderHistorial();
+  else if (state.tab === "estadisticas") body = renderEstadisticas(stats);
+  else if (state.tab === "movimientos") body = renderMovimientos();
+  else if (state.tab === "ajustes") body = renderAjustes(stats);
+
+  app.innerHTML = `
+    ${renderTopbar(stats)}
+    <div class="content">${body}</div>
+    ${renderBottomNav()}
+  `;
+
+  bindEvents();
+
+  if (activeId) {
+    const el = document.getElementById(activeId);
+    if (el) {
+      el.focus();
+      if (selStart !== null && el.setSelectionRange) {
+        try { el.setSelectionRange(selStart, selEnd); } catch (_) {}
+      }
+    }
+  }
+}
+
+// ─── Handlers ───────────────────────────────────────────────────────────────
+function setField(path, value) {
+  const parts = path.split(".");
+  let obj = state;
+  for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+  obj[parts[parts.length - 1]] = value;
+}
+
+function handleAddApuesta() {
+  const f = state.form;
+  const monto = parseFloat(f.monto);
+  if (isNaN(monto) || monto <= 0 || !f.descripcion) return;
+
+  let cuota, selecciones;
+  if (f.tipo === "Combinada") {
+    const legsClean = f.legs
+      .filter(l => l.descripcion && l.cuota && parseFloat(l.cuota) >= 1)
+      .map(l => ({ id: l.id, descripcion: l.descripcion, cuota: parseFloat(l.cuota), resultado: "Pendiente" }));
+    if (legsClean.length < 2) return;
+    cuota = legsClean.reduce((p, l) => p * l.cuota, 1);
+    selecciones = legsClean;
+  } else {
+    cuota = parseFloat(f.cuota);
+    if (isNaN(cuota) || cuota < 1) return;
+    selecciones = [];
+  }
+
+  const unidades = f.unidades && !isNaN(parseFloat(f.unidades)) ? parseFloat(f.unidades) : null;
+  const etiquetas = f.etiquetas ? f.etiquetas.split(",").map(s => s.trim()).filter(Boolean) : [];
+
+  state.apuestas.push({
+    id: Date.now(), descripcion: f.descripcion, deporte: f.deporte,
+    tipo: f.tipo, monto, cuota, estado: "Pendiente", fecha: f.fecha,
+    unidades, etiquetas, nota: f.nota || "", cuotaCierre: null,
+    selecciones,
+  });
+
+  state.form = { ...f, descripcion: "", monto: "", cuota: "", unidades: "", etiquetas: "", nota: "", legs: [] };
+  state.tab = "historial";
+  saveApuestas();
+  render();
+}
+
+function handleAddMovimiento() {
+  const mv = state.movForm;
+  const monto = parseFloat(mv.monto);
+  if (isNaN(monto) || monto <= 0) return;
+  state.movimientos.push({ id: Date.now(), tipo: mv.tipo, monto, nota: mv.nota, fecha: mv.fecha });
+  state.movForm = { ...mv, monto: "", nota: "" };
+  saveMovimientos();
+  render();
+}
+
+function bindEvents() {
+  const app = document.getElementById("app");
+
+  app.querySelectorAll("[data-action]").forEach(el => {
+    el.addEventListener("click", () => {
+      const action = el.dataset.action;
+
+      if (action === "set-tab") { state.tab = el.dataset.tab; render(); }
+      else if (action === "add-apuesta") { handleAddApuesta(); }
+      else if (action === "add-movimiento") { handleAddMovimiento(); }
+      else if (action === "set-estado") {
+        const id = Number(el.dataset.id);
+        state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, estado: el.dataset.estado } : x);
+        saveApuestas(); render();
+      }
+      else if (action === "delete-apuesta") {
+        const id = Number(el.dataset.id);
+        state.apuestas = state.apuestas.filter(x => x.id !== id);
+        saveApuestas(); render();
+      }
+      else if (action === "delete-movimiento") {
+        const id = Number(el.dataset.id);
+        state.movimientos = state.movimientos.filter(x => x.id !== id);
+        saveMovimientos(); render();
+      }
+      else if (action === "set-mov-tipo") { state.movForm.tipo = el.dataset.tipo; render(); }
+      else if (action === "set-fdeporte") { state.fDeporte = el.dataset.value; render(); }
+      else if (action === "set-festado") { state.fEstado = el.dataset.value; render(); }
+      else if (action === "set-ftag") { state.fTag = el.dataset.value; render(); }
+      else if (action === "toggle-vencidas") { state.fVencidasOnly = !state.fVencidasOnly; render(); }
+      else if (action === "ver-vencidas") { state.tab = "historial"; state.fEstado = "Pendiente"; state.fVencidasOnly = true; render(); }
+      else if (action === "add-leg") { state.form.legs.push({ id: genId(), descripcion: "", cuota: "" }); render(); }
+      else if (action === "remove-leg") {
+        const legId = el.dataset.legId;
+        state.form.legs = state.form.legs.filter(l => l.id !== legId);
+        render();
+      }
+      else if (action === "set-leg-estado") {
+        const id = Number(el.dataset.id);
+        const legId = el.dataset.legId;
+        const estado = el.dataset.estado;
+        state.apuestas = state.apuestas.map(x => {
+          if (x.id !== id) return x;
+          const selecciones = x.selecciones.map(l => l.id === legId ? { ...l, resultado: estado } : l);
+          const updated = { ...x, selecciones };
+          updated.estado = syncEstadoFromLegs(updated);
+          return updated;
+        });
+        saveApuestas(); render();
+      }
+      else if (action === "edit-clv") {
+        const id = Number(el.dataset.id);
+        const a = state.apuestas.find(x => x.id === id);
+        const val = prompt("Cuota de cierre (para calcular CLV):", a.cuotaCierre ?? "");
+        if (val === null) return;
+        const num = parseFloat(val);
+        state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, cuotaCierre: isNaN(num) ? null : num } : x);
+        saveApuestas(); render();
+      }
+      else if (action === "edit-nota") {
+        const id = Number(el.dataset.id);
+        const a = state.apuestas.find(x => x.id === id);
+        const val = prompt("Nota:", a.nota || "");
+        if (val === null) return;
+        state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, nota: val } : x);
+        saveApuestas(); render();
+      }
+      else if (action === "export-apuestas-csv") { downloadFile(`apuestas_${today}.csv`, "\uFEFF" + apuestasToCSV(state.apuestas), "text/csv;charset=utf-8;"); }
+      else if (action === "export-historial-csv") { downloadFile(`apuestas_filtradas_${today}.csv`, "\uFEFF" + apuestasToCSV(computeFiltradas()), "text/csv;charset=utf-8;"); }
+      else if (action === "export-movimientos-csv" || action === "export-movimientos-csv-tab") { downloadFile(`movimientos_${today}.csv`, "\uFEFF" + movimientosToCSV(state.movimientos), "text/csv;charset=utf-8;"); }
+      else if (action === "export-backup") { exportBackup(); }
+    });
+  });
+
+  app.querySelectorAll("[data-field]").forEach(el => {
+    const evt = (el.tagName === "SELECT" || el.type === "date") ? "change" : "input";
+    el.addEventListener(evt, (e) => {
+      const path = el.dataset.field;
+      let value = e.target.value;
+
+      if (path.startsWith("config.")) {
+        const num = value === "" ? null : parseFloat(value);
+        setField(path, num);
+        saveConfig();
+      } else {
+        setField(path, value);
+        if (path === "form.tipo" && value === "Combinada" && state.form.legs.length === 0) {
+          state.form.legs = [{ id: genId(), descripcion: "", cuota: "" }, { id: genId(), descripcion: "", cuota: "" }];
+        }
+        if (path === "form.unidades") {
+          const num = parseFloat(value);
+          if (!isNaN(num) && state.config.valorUnidad && !state.form.monto) {
+            state.form.monto = String(Math.round(num * state.config.valorUnidad));
+          }
+        }
+      }
+      render();
+    });
+  });
+
+  app.querySelectorAll("[data-leg-field]").forEach(el => {
+    el.addEventListener("input", (e) => {
+      const legId = el.dataset.legId;
+      const field = el.dataset.legField;
+      state.form.legs = state.form.legs.map(l => l.id === legId ? { ...l, [field]: e.target.value } : l);
+      render();
+    });
+  });
+
+  const importInput = document.getElementById("import-file-input");
+  if (importInput) {
+    importInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) handleImportFile(file);
+    });
+  }
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
