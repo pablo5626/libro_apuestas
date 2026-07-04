@@ -261,6 +261,7 @@ const ICON_PATHS = {
   barChart: '<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
 };
 function icon(name, size = 18, color = "currentColor", sw = 2) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name] || ""}</svg>`;
@@ -1176,12 +1177,11 @@ function renderBetCard(a) {
         ${a.selecciones.map(leg => `
           <div class="leg-item">
             <div style="font-size:12px; color:${C.onSurface}; flex:1;">${esc(leg.descripcion)}${(leg.cuota != null && !isNaN(Number(leg.cuota))) ? ` <span style="color:${C.onSurfaceVariant}; font-weight:700;">@${Number(leg.cuota).toFixed(2)}</span>` : ""}</div>
-            ${a.estado === "Pendiente" ? `
-              <div style="display:flex; gap:4px;">
-                <button class="leg-btn" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Ganada" style="background:${C.profitBg}; color:${C.profitGreen};">${icon("check", 12)}</button>
-                <button class="leg-btn" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Perdida" style="background:${C.lossBg}; color:${C.lossRed};">${icon("x", 12)}</button>
-              </div>
-            ` : `<span style="font-size:10px; font-weight:700; color:${leg.resultado === "Ganada" ? C.profitGreen : leg.resultado === "Perdida" ? C.lossRed : C.pendingOrange};">${leg.resultado}</span>`}
+            <div style="display:flex; gap:4px; align-items:center;">
+              <button class="leg-btn" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Ganada" style="background:${leg.resultado === "Ganada" ? C.profitGreen : C.profitBg}; color:${leg.resultado === "Ganada" ? "#fff" : C.profitGreen};">${icon("check", 12)}</button>
+              <button class="leg-btn" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Perdida" style="background:${leg.resultado === "Perdida" ? C.lossRed : C.lossBg}; color:${leg.resultado === "Perdida" ? "#fff" : C.lossRed};">${icon("x", 12)}</button>
+              ${leg.resultado !== "Pendiente" ? `<button class="leg-btn" title="Deshacer, marcar pendiente" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Pendiente" style="background:transparent; color:${C.onSurfaceVariant};">${icon("undo", 12)}</button>` : ""}
+            </div>
           </div>
         `).join("")}
       </div>
@@ -1190,17 +1190,18 @@ function renderBetCard(a) {
     ${a.etiquetas && a.etiquetas.length ? `<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;">${a.etiquetas.map(t => `<span class="tag-pill">${esc(t)}</span>`).join("")}</div>` : ""}
     ${a.nota ? `<div class="note-block">📝 ${esc(a.nota)}</div>` : ""}
 
-    <div class="bet-stats" style="grid-template-columns:repeat(${cols},1fr); margin-top:10px; margin-bottom:${(!hasLegs && a.estado === "Pendiente") ? "12px" : "0"};">
+    <div class="bet-stats" style="grid-template-columns:repeat(${cols},1fr); margin-top:10px; margin-bottom:${!hasLegs ? "12px" : "0"};">
       <div><div class="lbl">Apostado</div><div class="val" style="color:${C.onSurface}">${fmt(a.monto)}</div></div>
       <div><div class="lbl">Cuota</div><div class="val" style="color:${C.primary}">${a.cuota.toFixed(2)}</div></div>
       <div><div class="lbl">Potencial</div><div class="val" style="color:${C.profitGreen}">${fmt(gananciaTotal)}</div></div>
       ${a.unidades ? `<div><div class="lbl">Stake</div><div class="val" style="color:${C.secondary}">${a.unidades}u</div></div>` : ""}
     </div>
 
-    ${(!hasLegs && a.estado === "Pendiente") ? `
+    ${!hasLegs ? `
       <div class="bet-actions">
-        <button class="bet-action-btn" style="background:${C.profitGreen}" data-action="set-estado" data-id="${a.id}" data-estado="Ganada">${icon("check", 13)} Ganada</button>
-        <button class="bet-action-btn" style="background:${C.lossRed}" data-action="set-estado" data-id="${a.id}" data-estado="Perdida">${icon("x", 13)} Perdida</button>
+        <button class="bet-action-btn" style="background:${a.estado === "Ganada" ? C.profitGreen : "transparent"}; color:${a.estado === "Ganada" ? "#fff" : C.profitGreen}; border:1.5px solid ${C.profitGreen};" data-action="set-estado" data-id="${a.id}" data-estado="Ganada">${icon("check", 13)} Ganada</button>
+        <button class="bet-action-btn" style="background:${a.estado === "Perdida" ? C.lossRed : "transparent"}; color:${a.estado === "Perdida" ? "#fff" : C.lossRed}; border:1.5px solid ${C.lossRed};" data-action="set-estado" data-id="${a.id}" data-estado="Perdida">${icon("x", 13)} Perdida</button>
+        ${a.estado !== "Pendiente" ? `<button class="bet-action-btn" title="Deshacer, marcar pendiente" style="background:transparent; color:${C.onSurfaceVariant}; border:1.5px solid ${C.borderSubtle}; flex:0 0 44px;" data-action="set-estado" data-id="${a.id}" data-estado="Pendiente">${icon("undo", 14)}</button>` : ""}
       </div>
     ` : ""}
 
