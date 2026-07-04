@@ -145,6 +145,7 @@
 
   .leg-row{ display:flex; gap:6px; align-items:center; margin-bottom:8px; }
   .leg-desc{ flex:2; }
+  .leg-desc-full{ flex:1; }
   .leg-cuota{ flex:1; }
   .leg-item{ display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px dashed var(--border-subtle); }
   .leg-btn{ border:none; border-radius:6px; padding:4px 6px; cursor:pointer; display:flex; align-items:center; }
@@ -325,7 +326,7 @@ function showSaveStatus(status) {
     el.className = "save-indicator show saved";
     saveIndicatorHideTimer = setTimeout(() => { el.className = "save-indicator"; }, 1100);
   } else if (status === "error") {
-    el.textContent = "No se pudo guardar — revisa tu conexión";
+    el.textContent = "No se pudo guardar en este navegador";
     el.className = "save-indicator show error";
     // Un error se queda visible más tiempo que un guardado exitoso: es más
     // importante que el usuario lo note, no queremos que pase inadvertido.
@@ -333,15 +334,24 @@ function showSaveStatus(status) {
   }
 }
 
-async function persist(key, value) {
+// `window.storage` es una API que solo existe DENTRO de la vista previa de
+// artefactos de Claude.ai — en una página normal, alojada por ti mismo y
+// abierta en Safari (como la tienes), ese objeto no existe. Antes esto fallaba
+// en silencio (el try/catch se tragaba el error) así que nada se guardaba de
+// verdad entre sesiones, aunque en pantalla pareciera funcionar. Usamos
+// localStorage, que es el almacenamiento real del navegador: funciona sin
+// internet, sobrevive a cerrar la app/pestaña, y es lo correcto para una
+// página que vas a alojar tú mismo.
+function persist(key, value) {
   pendingSaveCount++;
   showSaveStatus("saving");
   let ok = false;
   try {
-    const result = await window.storage.set(key, value, false);
-    if (!result) throw new Error("storage.set returned no result");
+    localStorage.setItem(key, value);
     ok = true;
   } catch (err) {
+    // Esto sí puede pasar de verdad: modo privado/incógnito en algunos
+    // navegadores, o espacio de almacenamiento lleno.
     saveHadError = true;
     showSaveStatus("error");
   } finally {
@@ -355,22 +365,22 @@ async function persist(key, value) {
 }
 
 // ─── Storage ────────────────────────────────────────────────────────────────
-async function loadData() {
+function loadData() {
   try {
-    const a = await window.storage.get("libro_apuestas_v1", false);
-    if (a) state.apuestas = JSON.parse(a.value);
+    const a = localStorage.getItem("libro_apuestas_v1");
+    if (a) state.apuestas = JSON.parse(a);
   } catch (_) {}
   try {
-    const m = await window.storage.get("libro_movimientos_v1", false);
-    if (m) state.movimientos = JSON.parse(m.value);
+    const m = localStorage.getItem("libro_movimientos_v1");
+    if (m) state.movimientos = JSON.parse(m);
   } catch (_) {}
   try {
-    const c = await window.storage.get("libro_config_v1", false);
-    if (c) state.config = { ...state.config, ...JSON.parse(c.value) };
+    const c = localStorage.getItem("libro_config_v1");
+    if (c) state.config = { ...state.config, ...JSON.parse(c) };
   } catch (_) {}
   try {
-    const t = await window.storage.get("libro_theme_v1", false);
-    if (t && (t.value === "dark" || t.value === "light")) state.theme = t.value;
+    const t = localStorage.getItem("libro_theme_v1");
+    if (t === "dark" || t === "light") state.theme = t;
     else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) state.theme = "dark";
   } catch (_) {
     if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) state.theme = "dark";
@@ -379,10 +389,10 @@ async function loadData() {
   state.loading = false;
   render();
 }
-async function saveApuestas() { return persist("libro_apuestas_v1", JSON.stringify(state.apuestas)); }
-async function saveMovimientos() { return persist("libro_movimientos_v1", JSON.stringify(state.movimientos)); }
-async function saveConfig() { return persist("libro_config_v1", JSON.stringify(state.config)); }
-async function saveTheme() { return persist("libro_theme_v1", state.theme); }
+function saveApuestas() { return persist("libro_apuestas_v1", JSON.stringify(state.apuestas)); }
+function saveMovimientos() { return persist("libro_movimientos_v1", JSON.stringify(state.movimientos)); }
+function saveConfig() { return persist("libro_config_v1", JSON.stringify(state.config)); }
+function saveTheme() { return persist("libro_theme_v1", state.theme); }
 
 
 
@@ -716,12 +726,6 @@ function computeMonthlyROI() {
   return Object.keys(map).sort().map(k => ({ mes: k, roi: map[k].monto > 0 ? (map[k].balance / map[k].monto * 100) : 0, balance: map[k].balance }));
 }
 
-function computeCombinedCuota(legs) {
-  const valid = legs.filter(l => l.cuota && parseFloat(l.cuota) >= 1);
-  if (valid.length === 0) return null;
-  return valid.reduce((p, l) => p * parseFloat(l.cuota), 1);
-}
-
 function syncEstadoFromLegs(apuesta) {
   const legs = apuesta.selecciones;
   if (!Array.isArray(legs) || legs.length === 0) return apuesta.estado;
@@ -1009,8 +1013,7 @@ function renderResumen(stats) {
 
 function renderNueva() {
   const f = state.form;
-  const combinedCuota = f.tipo === "Combinada" ? computeCombinedCuota(f.legs) : null;
-  const effectiveCuota = f.tipo === "Simple" ? parseFloat(f.cuota) : combinedCuota;
+  const effectiveCuota = parseFloat(f.cuota);
   const montoPrev = f.monto && effectiveCuota && effectiveCuota >= 1 ? parseFloat(f.monto) * effectiveCuota : null;
 
   return `
@@ -1043,25 +1046,24 @@ function renderNueva() {
       <input id="input-monto" data-field="form.monto" type="number" min="0" class="input" value="${esc(f.monto)}" placeholder="50000" />
     </div>
 
-    ${f.tipo === "Simple" ? `
-      <div class="field">
-        <label class="label-caps">Cuota decimal</label>
-        <input id="input-cuota" data-field="form.cuota" type="text" inputmode="decimal" class="input" value="${esc(f.cuota)}" placeholder="1.85" />
-      </div>
-    ` : `
+    ${f.tipo === "Combinada" ? `
       <div class="field">
         <label class="label-caps">Selecciones de la combinada</label>
         ${f.legs.map((leg, i) => `
           <div class="leg-row">
-            <input id="leg-desc-${leg.id}" data-leg-field="descripcion" data-leg-id="${leg.id}" class="input leg-desc" placeholder="Selección ${i + 1}" value="${esc(leg.descripcion)}" />
-            <input id="leg-cuota-${leg.id}" data-leg-field="cuota" data-leg-id="${leg.id}" type="text" inputmode="decimal" class="input leg-cuota" placeholder="Cuota" value="${esc(leg.cuota)}" />
+            <input id="leg-desc-${leg.id}" data-leg-field="descripcion" data-leg-id="${leg.id}" class="input leg-desc-full" placeholder="Selección ${i + 1}" value="${esc(leg.descripcion)}" />
             <button type="button" class="delete-btn" data-action="remove-leg" data-leg-id="${leg.id}">${icon("x", 15)}</button>
           </div>
         `).join("")}
         <button type="button" class="chip" data-action="add-leg">+ Agregar selección</button>
-        <div class="combo-cuota-box">Cuota combinada: <strong style="color:${C.primary};">${combinedCuota ? combinedCuota.toFixed(2) : "—"}</strong></div>
       </div>
-    `}
+    ` : ""}
+
+    <div class="field">
+      <label class="label-caps">${f.tipo === "Combinada" ? "Cuota combinada (acumulada)" : "Cuota decimal"}</label>
+      <input id="input-cuota" data-field="form.cuota" type="text" inputmode="decimal" class="input" value="${esc(f.cuota)}" placeholder="${f.tipo === "Combinada" ? "ej. 5.40" : "1.85"}" />
+      ${f.tipo === "Combinada" ? `<div style="font-size:11px; color:${C.onSurfaceVariant}; margin-top:4px;">Pon directamente la cuota total que te da la casa de apuestas para toda la combinada — ya no hace falta la cuota de cada selección por separado.</div>` : ""}
+    </div>
 
     <div class="grid-2">
       <div class="field">
@@ -1173,7 +1175,7 @@ function renderBetCard(a) {
       <div style="margin-bottom:10px;">
         ${a.selecciones.map(leg => `
           <div class="leg-item">
-            <div style="font-size:12px; color:${C.onSurface}; flex:1;">${esc(leg.descripcion)} <span style="color:${C.onSurfaceVariant}; font-weight:700;">@${Number(leg.cuota).toFixed(2)}</span></div>
+            <div style="font-size:12px; color:${C.onSurface}; flex:1;">${esc(leg.descripcion)}${(leg.cuota != null && !isNaN(Number(leg.cuota))) ? ` <span style="color:${C.onSurfaceVariant}; font-weight:700;">@${Number(leg.cuota).toFixed(2)}</span>` : ""}</div>
             ${a.estado === "Pendiente" ? `
               <div style="display:flex; gap:4px;">
                 <button class="leg-btn" data-action="set-leg-estado" data-id="${a.id}" data-leg-id="${leg.id}" data-estado="Ganada" style="background:${C.profitBg}; color:${C.profitGreen};">${icon("check", 12)}</button>
@@ -1697,17 +1699,21 @@ function handleAddApuesta() {
   const monto = parseFloat(f.monto);
   if (isNaN(monto) || monto <= 0 || !f.descripcion) return;
 
-  let cuota, selecciones;
+  const cuota = parseFloat(f.cuota);
+  if (isNaN(cuota) || cuota < 1) return;
+
+  let selecciones;
   if (f.tipo === "Combinada") {
+    // Ya no se pide la cuota de cada selección por separado: la cuota
+    // acumulada de toda la combinada se escribe una sola vez arriba (mismo
+    // campo que usa una Simple). Cada selección solo guarda su descripción,
+    // para poder marcarla Ganada/Perdida individualmente en el historial.
     const legsClean = f.legs
-      .filter(l => l.descripcion && l.cuota && parseFloat(l.cuota) >= 1)
-      .map(l => ({ id: l.id, descripcion: l.descripcion, cuota: parseFloat(l.cuota), resultado: "Pendiente" }));
+      .filter(l => l.descripcion && l.descripcion.trim())
+      .map(l => ({ id: l.id, descripcion: l.descripcion.trim(), resultado: "Pendiente" }));
     if (legsClean.length < 2) return;
-    cuota = legsClean.reduce((p, l) => p * l.cuota, 1);
     selecciones = legsClean;
   } else {
-    cuota = parseFloat(f.cuota);
-    if (isNaN(cuota) || cuota < 1) return;
     selecciones = [];
   }
 
@@ -1772,7 +1778,7 @@ function runAction(action, el) {
   else if (action === "set-ftag") { state.fTag = el.dataset.value; render(); }
   else if (action === "toggle-vencidas") { state.fVencidasOnly = !state.fVencidasOnly; render(); }
   else if (action === "ver-vencidas") { state.tab = "historial"; state.fEstado = "Pendiente"; state.fVencidasOnly = true; render(); }
-  else if (action === "add-leg") { state.form.legs.push({ id: genId(), descripcion: "", cuota: "" }); render(); }
+  else if (action === "add-leg") { state.form.legs.push({ id: genId(), descripcion: "" }); render(); }
   else if (action === "remove-leg") {
     const legId = el.dataset.legId;
     state.form.legs = state.form.legs.filter(l => l.id !== legId);
@@ -1855,7 +1861,7 @@ function applyFieldChange(el) {
   } else {
     setField(path, value);
     if (path === "form.tipo" && value === "Combinada" && state.form.legs.length === 0) {
-      state.form.legs = [{ id: genId(), descripcion: "", cuota: "" }, { id: genId(), descripcion: "", cuota: "" }];
+      state.form.legs = [{ id: genId(), descripcion: "" }, { id: genId(), descripcion: "" }];
     }
     if (path === "form.unidades") {
       const num = parseFloat(value);
@@ -1919,6 +1925,7 @@ function bindEventsOnce() {
 
 // ─── Init ───────────────────────────────────────────────────────────────────
 bindEventsOnce();
+render(); // muestra la pantalla de "Cargando…" de inmediato, en vez de blanco
 loadData();
 </script>
 </body>
