@@ -207,6 +207,21 @@
   .save-indicator.saving{ background:var(--surface-lowest); color:var(--on-surface-variant); border:1px solid var(--border-subtle); }
   .save-indicator.saved{ background:var(--profit-bg); color:var(--profit-green); }
   .save-indicator.error{ background:var(--loss-bg); color:var(--loss-red); }
+
+  /* iOS bloquea window.prompt() en apps agregadas a "Pantalla de inicio" (se
+     queda sin hacer nada, sin mostrar ningún diálogo). Este modal propio
+     reemplaza al prompt nativo y funciona igual en Safari normal, PWA, y
+     Android. */
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:10000; display:flex; align-items:flex-end; justify-content:center; }
+  .modal-box{ background:var(--surface-lowest); width:100%; max-width:480px; border-radius:20px 20px 0 0; padding:20px; padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px)); box-shadow:0 -8px 30px rgba(0,0,0,.25); animation:modal-slide-up .18s ease; }
+  @keyframes modal-slide-up{ from{ transform:translateY(24px); opacity:0; } to{ transform:translateY(0); opacity:1; } }
+  .modal-title{ font-size:16px; font-weight:800; color:var(--on-surface); margin-bottom:6px; }
+  .modal-message{ font-size:12.5px; color:var(--on-surface-variant); margin-bottom:14px; line-height:1.45; white-space:pre-line; }
+  .modal-error{ font-size:12px; font-weight:700; color:var(--loss-red); margin-top:8px; min-height:16px; }
+  .modal-actions{ display:flex; gap:8px; margin-top:16px; }
+  .modal-btn{ flex:1; border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:700; cursor:pointer; }
+  .modal-cancel{ background:var(--surface-low); color:var(--on-surface-variant); }
+  .modal-ok{ background:var(--primary); color:var(--on-primary); }
 </style>
 </head>
 <body>
@@ -226,6 +241,7 @@ const C_LIGHT = {
   profitGreen: "#16A34A", profitBg: "#F0FDF4", profitBorder: "#BBF7D0",
   lossRed: "#DC2626", lossBg: "#FEF2F2", lossBorder: "#FECACA",
   pendingOrange: "#D97706", pendingBg: "#FFFBEB", pendingBorder: "#FDE68A",
+  cashoutBlue: "#2563EB", cashoutBg: "#EFF6FF", cashoutBorder: "#BFDBFE",
 };
 const C_DARK = {
   primary: "#3E6FD9", primaryContainer: "#1b2a4a", secondary: "#4FA3D9",
@@ -235,6 +251,7 @@ const C_DARK = {
   profitGreen: "#34D399", profitBg: "#0F2A21", profitBorder: "#1F5940",
   lossRed: "#F87171", lossBg: "#3A1518", lossBorder: "#6B2A2E",
   pendingOrange: "#FBBF24", pendingBg: "#3A2A0C", pendingBorder: "#6B4F1A",
+  cashoutBlue: "#60A5FA", cashoutBg: "#152238", cashoutBorder: "#1E3A5F",
 };
 const C = { ...C_LIGHT };
 
@@ -304,6 +321,63 @@ let state = {
 function applyTheme() {
   Object.assign(C, state.theme === "dark" ? C_DARK : C_LIGHT);
   document.documentElement.setAttribute("data-theme", state.theme);
+}
+
+// iOS no muestra window.prompt() dentro de apps agregadas a "Pantalla de
+// inicio" — la llamada retorna de inmediato sin desplegar ningún diálogo, así
+// que cualquier botón que dependiera de prompt() se sentía como que "no hacía
+// nada". Este modal casero reemplaza a prompt() en toda la app y sí funciona
+// tanto en Safari normal como en la app instalada.
+//
+// validate(value) es opcional: si se pasa, se ejecuta al tocar "Aceptar" y
+// debe devolver un string de error (se muestra sin cerrar el modal) o null/
+// undefined si el valor es válido (se cierra y resuelve con ese valor).
+function showPromptModal({ title, message = "", defaultValue = "", placeholder = "", validate = null, numeric = false }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-title">${esc(title)}</div>
+        ${message ? `<div class="modal-message">${esc(message)}</div>` : ""}
+        <input type="text" ${numeric ? `inputmode="decimal"` : ""} class="input modal-input" value="${esc(defaultValue)}" placeholder="${esc(placeholder)}" />
+        <div class="modal-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="modal-btn modal-cancel">Cancelar</button>
+          <button type="button" class="modal-btn modal-ok">Aceptar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector(".modal-input");
+    const errorEl = overlay.querySelector(".modal-error");
+    // Pequeño delay antes del focus: en iOS, si el foco llega en el mismo
+    // tick que el toque que abrió el modal, a veces el teclado no sube.
+    setTimeout(() => { input.focus(); input.select(); }, 50);
+
+    let done = false;
+    const cleanup = (result) => {
+      if (done) return;
+      done = true;
+      overlay.remove();
+      resolve(result);
+    };
+    const tryAccept = () => {
+      const val = input.value;
+      if (validate) {
+        const err = validate(val);
+        if (err) { errorEl.textContent = err; return; }
+      }
+      cleanup(val);
+    };
+    overlay.querySelector(".modal-cancel").addEventListener("click", () => cleanup(null));
+    overlay.querySelector(".modal-ok").addEventListener("click", tryAccept);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); tryAccept(); }
+      else if (e.key === "Escape") cleanup(null);
+    });
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) cleanup(null); });
+  });
 }
 
 // ─── Save status indicator ──────────────────────────────────────────────────
@@ -397,6 +471,20 @@ function saveTheme() { return persist("libro_theme_v1", state.theme); }
 
 
 
+// Ganancia/pérdida real de UNA apuesta ya resuelta. Centralizado acá porque el
+// cobro anticipado (Cobrada) no sigue la fórmula normal de "cuota × monto":
+// la casa de apuestas paga lo que decide en ese momento, que puede ser menos
+// que la ganancia completa, o incluso menos que lo invertido si el cobro fue
+// por una apuesta que iba mal. Todo el resto del archivo (saldo, ROI, curva de
+// equity, CSV, etc.) pasa por acá para que el cobro anticipado quede reflejado
+// de forma consistente en todos lados sin repetir esta lógica en cada sitio.
+function gananciaApuesta(a) {
+  if (a.estado === "Ganada") return a.cuota * a.monto - a.monto;
+  if (a.estado === "Cobrada") return (a.montoCobrado || 0) - a.monto;
+  if (a.estado === "Perdida") return -a.monto;
+  return 0;
+}
+
 // ─── Derived data ───────────────────────────────────────────────────────────
 function computeStats() {
   const { apuestas, movimientos } = state;
@@ -404,18 +492,18 @@ function computeStats() {
   const retiros = movimientos.filter(m => m.tipo === "retiro").reduce((s, m) => s + m.monto, 0);
   const ganadas = apuestas.filter(a => a.estado === "Ganada");
   const perdidas = apuestas.filter(a => a.estado === "Perdida");
+  const cobradas = apuestas.filter(a => a.estado === "Cobrada");
   const pendientes = apuestas.filter(a => a.estado === "Pendiente");
+  const settled = [...ganadas, ...perdidas, ...cobradas];
 
-  const gananciaNeta = ganadas.reduce((s, a) => s + (a.cuota * a.monto - a.monto), 0);
-  const montoPerdido = perdidas.reduce((s, a) => s + a.monto, 0);
-  const saldo = depositos - retiros + gananciaNeta - montoPerdido;
-  const settledMonto = [...ganadas, ...perdidas].reduce((s, a) => s + a.monto, 0);
-  const roi = settledMonto > 0 ? ((gananciaNeta - montoPerdido) / settledMonto * 100) : 0;
-  const balance = gananciaNeta - montoPerdido;
+  const balance = settled.reduce((s, a) => s + gananciaApuesta(a), 0);
+  const saldo = depositos - retiros + balance;
+  const settledMonto = settled.reduce((s, a) => s + a.monto, 0);
+  const roi = settledMonto > 0 ? (balance / settledMonto * 100) : 0;
 
-  const settled = [...apuestas].filter(a => a.estado !== "Pendiente").sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const settledSorted = [...apuestas].filter(a => a.estado !== "Pendiente").sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   let rachaCount = 0, rachaType = null;
-  for (const a of settled) {
+  for (const a of settledSorted) {
     if (!rachaType) { rachaType = a.estado; rachaCount = 1; }
     else if (a.estado === rachaType) rachaCount++;
     else break;
@@ -431,7 +519,7 @@ function computeStats() {
     ? conCLV.reduce((s, a) => s + ((a.cuota / a.cuotaCierre - 1) * 100) * a.monto, 0) / clvMontoTotal
     : null;
 
-  return { saldo, depositos, retiros, gananciaNeta, montoPerdido, balance, roi, settledMonto, rachaCount, rachaType, pendientes: pendientes.length, ganadas: ganadas.length, perdidas: perdidas.length, clvAvg };
+  return { saldo, depositos, retiros, balance, roi, settledMonto, rachaCount, rachaType, pendientes: pendientes.length, ganadas: ganadas.length, perdidas: perdidas.length, cobradas: cobradas.length, clvAvg };
 }
 
 function computeChartData() {
@@ -443,8 +531,7 @@ function computeChartData() {
   let saldo = 0;
   return events.map(e => {
     if (e.kind === "mov") saldo += e.tipo === "deposito" ? e.monto : -e.monto;
-    else if (e.estado === "Ganada") saldo += e.cuota * e.monto - e.monto;
-    else saldo -= e.monto;
+    else saldo += gananciaApuesta(e);
     return { fecha: e.fecha, saldo };
   });
 }
@@ -460,7 +547,7 @@ function computeEquityCurve() {
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
   let equity = 0;
   return settled.map(a => {
-    equity += a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : -a.monto;
+    equity += gananciaApuesta(a);
     return { fecha: a.fecha, equity };
   });
 }
@@ -473,7 +560,7 @@ function computeRecentActivity() {
   const { apuestas, movimientos } = state;
   const events = [
     ...movimientos.map(m => ({ id: `m-${m.id}`, fecha: m.fecha, label: m.nota || (m.tipo === "deposito" ? "Depósito" : "Retiro"), amount: m.monto, positive: m.tipo === "deposito" })),
-    ...apuestas.filter(a => a.estado !== "Pendiente").map(a => ({ id: `a-${a.id}`, fecha: a.fecha, label: `${a.estado}: ${a.descripcion}`, amount: a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : a.monto, positive: a.estado === "Ganada" })),
+    ...apuestas.filter(a => a.estado !== "Pendiente").map(a => ({ id: `a-${a.id}`, fecha: a.fecha, label: `${a.estado}: ${a.descripcion}`, amount: gananciaApuesta(a), positive: gananciaApuesta(a) >= 0 })),
   ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   return events.slice(0, 4);
 }
@@ -588,7 +675,11 @@ function computeYield() {
   const settled = settledAll.filter(a => a.unidades != null && a.unidades > 0);
   if (settled.length === 0) return null;
   const stakeTotal = settled.reduce((s, a) => s + a.unidades, 0);
-  const profitTotal = settled.reduce((s, a) => s + (a.estado === "Ganada" ? (a.cuota - 1) * a.unidades : -a.unidades), 0);
+  // (ganancia real / monto en $) × unidades: para Ganada/Perdida da exactamente lo mismo que
+  // antes ((cuota-1)×unidades o -unidades), y para un cobro anticipado (Cobrada) extiende la
+  // misma lógica de forma natural: si cobraste el 40% de tu inversión, "pierdes" el 60% de esas
+  // unidades, en vez de que un cobro no calce en ninguna de las dos fórmulas anteriores.
+  const profitTotal = settled.reduce((s, a) => s + (a.monto > 0 ? (gananciaApuesta(a) / a.monto) * a.unidades : 0), 0);
   const yieldPct = stakeTotal > 0 ? (profitTotal / stakeTotal) * 100 : 0;
   return { count: settled.length, totalSettled: settledAll.length, stakeTotal, profitTotal, yieldPct, cobertura: (settled.length / settledAll.length) * 100 };
 }
@@ -611,8 +702,11 @@ function probStreakAtLeast(k, n, p) {
 // win rate y su cantidad total de apuestas resueltas?
 function computeStreakContext(stats) {
   const { rachaType, rachaCount, ganadas, perdidas } = stats;
+  // El contexto de "qué tan probable es esta racha por azar" solo tiene sentido para rachas de
+  // victorias o derrotas consecutivas; un cobro anticipado no es ni una cosa ni la otra.
+  if (rachaType !== "Ganada" && rachaType !== "Perdida") return null;
   const n = ganadas + perdidas;
-  if (!rachaType || n === 0) return null;
+  if (n === 0) return null;
   const rate = rachaType === "Ganada" ? (ganadas / n) : (perdidas / n);
   if (rate <= 0 || rate >= 1) return null;
   const prob = probStreakAtLeast(rachaCount, n, rate);
@@ -623,17 +717,21 @@ function computeSegmentStats(bets) {
   const settled = bets.filter(a => a.estado !== "Pendiente");
   const ganadas = settled.filter(a => a.estado === "Ganada");
   const perdidas = settled.filter(a => a.estado === "Perdida");
-  const gananciaNeta = ganadas.reduce((s, a) => s + (a.cuota * a.monto - a.monto), 0);
-  const montoPerdido = perdidas.reduce((s, a) => s + a.monto, 0);
-  const balance = gananciaNeta - montoPerdido;
+  const cobradas = settled.filter(a => a.estado === "Cobrada");
+  // Win rate/breakEven se miden solo contra resultados "limpios" (Ganada/Perdida): un cobro
+  // anticipado no es ni una victoria ni una derrota completa, así que no debe diluir el % de
+  // acierto real de la estrategia. El balance/ROI en $ sí incluye los cobros, porque ahí es
+  // plata real que entró o salió de la banca.
+  const decididas = ganadas.length + perdidas.length;
+  const balance = settled.reduce((s, a) => s + gananciaApuesta(a), 0);
   const montoApostado = settled.reduce((s, a) => s + a.monto, 0);
   const roi = montoApostado > 0 ? (balance / montoApostado * 100) : 0;
-  const winRate = settled.length > 0 ? (ganadas.length / settled.length * 100) : 0;
-  const winRateCI = wilsonInterval(ganadas.length, settled.length);
+  const winRate = decididas > 0 ? (ganadas.length / decididas * 100) : 0;
+  const winRateCI = wilsonInterval(ganadas.length, decididas);
   const muestraChica = settled.length < MUESTRA_CHICA_N;
   const profitFactor = computeProfitFactor(bets);
   const breakEven = computeBreakEven(bets);
-  return { count: settled.length, ganadas: ganadas.length, perdidas: perdidas.length, balance, roi, winRate, winRateCI, muestraChica, montoApostado, profitFactor, breakEven };
+  return { count: settled.length, ganadas: ganadas.length, perdidas: perdidas.length, cobradas: cobradas.length, balance, roi, winRate, winRateCI, muestraChica, montoApostado, profitFactor, breakEven };
 }
 
 function computeBySport() {
@@ -658,7 +756,7 @@ function computeByType() {
 }
 
 function computeBreakEven(bets = state.apuestas) {
-  const settled = bets.filter(a => a.estado !== "Pendiente");
+  const settled = bets.filter(a => a.estado === "Ganada" || a.estado === "Perdida");
   if (settled.length === 0) return null;
   const avgCuota = settled.reduce((s, a) => s + a.cuota, 0) / settled.length;
   // Break-even correcto = promedio de las probabilidades implícitas (1/cuota) de cada apuesta,
@@ -722,7 +820,7 @@ function computeMonthlyROI() {
     const key = a.fecha.slice(0, 7);
     if (!map[key]) map[key] = { monto: 0, balance: 0 };
     map[key].monto += a.monto;
-    map[key].balance += a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : -a.monto;
+    map[key].balance += gananciaApuesta(a);
   });
   return Object.keys(map).sort().map(k => ({ mes: k, roi: map[k].monto > 0 ? (map[k].balance / map[k].monto * 100) : 0, balance: map[k].balance }));
 }
@@ -744,11 +842,11 @@ function csvEsc(s) {
 function toCSVString(rows) { return rows.map(r => r.join(",")).join("\n"); }
 
 function apuestasToCSV(list) {
-  const headers = ["Fecha", "Descripcion", "Deporte", "Tipo", "Monto", "Cuota", "Unidades", "Estado", "GananciaNeta", "CuotaCierre", "CLV_%", "Etiquetas", "Nota"];
+  const headers = ["Fecha", "Descripcion", "Deporte", "Tipo", "Monto", "Cuota", "Unidades", "Estado", "MontoCobrado", "GananciaNeta", "CuotaCierre", "CLV_%", "Etiquetas", "Nota"];
   const rows = list.map(a => {
-    const ganancia = a.estado === "Ganada" ? (a.cuota * a.monto - a.monto) : a.estado === "Perdida" ? -a.monto : 0;
+    const ganancia = gananciaApuesta(a);
     const clv = a.cuotaCierre ? (((a.cuota / a.cuotaCierre) - 1) * 100).toFixed(2) : "";
-    return [a.fecha, csvEsc(a.descripcion), a.deporte, a.tipo, a.monto, a.cuota, a.unidades ?? "", a.estado, ganancia, a.cuotaCierre ?? "", clv, csvEsc((a.etiquetas || []).join("|")), csvEsc(a.nota || "")];
+    return [a.fecha, csvEsc(a.descripcion), a.deporte, a.tipo, a.monto, a.cuota, a.unidades ?? "", a.estado, a.montoCobrado ?? "", ganancia, a.cuotaCierre ?? "", clv, csvEsc((a.etiquetas || []).join("|")), csvEsc(a.nota || "")];
   });
   return toCSVString([headers, ...rows]);
 }
@@ -821,6 +919,7 @@ function statusColors(estado) {
     Ganada: { color: C.profitGreen, bg: C.profitBg, border: C.profitBorder },
     Perdida: { color: C.lossRed, bg: C.lossBg, border: C.lossBorder },
     Pendiente: { color: C.pendingOrange, bg: C.pendingBg, border: C.pendingBorder },
+    Cobrada: { color: C.cashoutBlue, bg: C.cashoutBg, border: C.cashoutBorder },
   }[estado];
 }
 
@@ -917,7 +1016,7 @@ function renderResumen(stats) {
     <div class="stat-card">
       <span class="label-caps">Apostado (resuelto)</span>
       <div class="stat-value" style="color:${C.primary}">${fmt(stats.settledMonto)}</div>
-      <div class="sub">${stats.ganadas}G · ${stats.perdidas}P</div>
+      <div class="sub">${stats.ganadas}G · ${stats.perdidas}P${stats.cobradas > 0 ? ` · ${stats.cobradas}C` : ""}</div>
     </div>
     <div class="stat-card" style="background:${balanceTint}; border-color:${balanceColor}33;">
       <span class="label-caps" style="color:${balanceColor}">Balance neto</span>
@@ -958,11 +1057,13 @@ function renderResumen(stats) {
     ` : `
       <div class="streak-row">
         ${last10.map(a => {
-          const won = a.estado === "Ganada";
-          return `<div class="streak-dot" title="${esc(a.descripcion)}" style="background:${won ? C.profitBg : C.lossBg}; border:1.5px solid ${won ? C.profitGreen : C.lossRed}; color:${won ? C.profitGreen : C.lossRed};">${icon(won ? "check" : "x", 15, "currentColor", 3)}</div>`;
+          const isCobrada = a.estado === "Cobrada";
+          const positive = gananciaApuesta(a) >= 0;
+          const ic = isCobrada ? "wallet" : (positive ? "check" : "x");
+          return `<div class="streak-dot" title="${esc(a.descripcion)}${isCobrada ? " (cobro anticipado)" : ""}" style="background:${positive ? C.profitBg : C.lossBg}; border:1.5px solid ${positive ? C.profitGreen : C.lossRed}; color:${positive ? C.profitGreen : C.lossRed};">${icon(ic, 15, "currentColor", isCobrada ? 2 : 3)}</div>`;
         }).join("")}
         ${stats.rachaType ? `
-          <div class="streak-note">— Racha de <strong style="color:${stats.rachaType === "Ganada" ? C.profitGreen : C.lossRed}">${stats.rachaCount} ${stats.rachaType === "Ganada" ? "victorias" : "pérdidas"}</strong></div>
+          <div class="streak-note">— Racha de <strong style="color:${stats.rachaType === "Ganada" ? C.profitGreen : stats.rachaType === "Perdida" ? C.lossRed : C.cashoutBlue}">${stats.rachaCount} ${stats.rachaType === "Ganada" ? "victorias" : stats.rachaType === "Perdida" ? "pérdidas" : "cobros anticipados"}</strong></div>
         ` : ""}
       </div>
       ${streakCtx && streakCtx.n >= 10 ? `
@@ -1125,7 +1226,7 @@ function renderHistorial() {
     ${["Todos", ...DEPORTES].map(d => `<button class="chip" data-action="set-fdeporte" data-value="${d}" style="${state.fDeporte === d ? `border-color:${C.primary}; background:${C.primary}18; color:${C.primary};` : ""}">${d}</button>`).join("")}
   </div>
   <div class="chips-row">
-    ${[["Todos", C.primary], ["Pendiente", C.pendingOrange], ["Ganada", C.profitGreen], ["Perdida", C.lossRed]].map(([e, c]) => `<button class="chip" data-action="set-festado" data-value="${e}" style="${state.fEstado === e ? `border-color:${c}; background:${c}18; color:${c};` : ""}">${e}</button>`).join("")}
+    ${[["Todos", C.primary], ["Pendiente", C.pendingOrange], ["Ganada", C.profitGreen], ["Perdida", C.lossRed], ["Cobrada", C.cashoutBlue]].map(([e, c]) => `<button class="chip" data-action="set-festado" data-value="${e}" style="${state.fEstado === e ? `border-color:${c}; background:${c}18; color:${c};` : ""}">${e}</button>`).join("")}
     ${vencidasCount > 0 ? `<button class="chip" data-action="toggle-vencidas" style="${state.fVencidasOnly ? `border-color:${C.pendingOrange}; background:${C.pendingOrange}18; color:${C.pendingOrange};` : ""}">${icon("alert", 12)} Vencidas (${vencidasCount})</button>` : ""}
   </div>
   ${allTags.length > 0 ? `
@@ -1155,7 +1256,12 @@ function renderBetCard(a) {
   const hasLegs = Array.isArray(a.selecciones) && a.selecciones.length > 0;
   const oldTextSel = (!hasLegs && typeof a.selecciones === "string" && a.selecciones) ? a.selecciones : null;
   const isVencida = a.estado === "Pendiente" && a.fecha < today;
-  const cols = a.unidades ? 4 : 3;
+  const isCobrada = a.estado === "Cobrada";
+  const cols = 3 + (a.unidades ? 1 : 0) + (isCobrada ? 1 : 0);
+  // El cobro anticipado solo tiene sentido mientras la apuesta sigue corriendo (Pendiente), o
+  // para poder editar/deshacer uno que ya registraste — una vez que quedó Ganada o Perdida de
+  // forma definitiva, ya no aplica.
+  const puedeCobrar = a.estado === "Pendiente" || isCobrada;
 
   return `
   <div class="bet-card" style="border:1.5px solid ${isVencida ? C.lossBorder : meta.border};">
@@ -1195,6 +1301,7 @@ function renderBetCard(a) {
       <div><div class="lbl">Cuota</div><div class="val" style="color:${C.primary}">${a.cuota.toFixed(2)}</div></div>
       <div><div class="lbl">Potencial</div><div class="val" style="color:${C.profitGreen}">${fmt(gananciaTotal)}</div></div>
       ${a.unidades ? `<div><div class="lbl">Stake</div><div class="val" style="color:${C.secondary}">${a.unidades}u</div></div>` : ""}
+      ${isCobrada ? `<div><div class="lbl">Cobrado</div><div class="val" style="color:${C.cashoutBlue}">${fmt(a.montoCobrado || 0)}</div></div>` : ""}
     </div>
 
     ${!hasLegs ? `
@@ -1205,7 +1312,8 @@ function renderBetCard(a) {
       </div>
     ` : ""}
 
-    <div style="display:flex; gap:8px; margin-top:10px;">
+    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+      ${puedeCobrar ? `<button class="ghost-btn" style="${isCobrada ? `border-color:${C.cashoutBorder}; color:${C.cashoutBlue};` : ""}" data-action="cobro-anticipado" data-id="${a.id}">${icon("wallet", 12)} ${isCobrada ? "Editar cobro" : "Cobro anticipado"}</button>` : ""}
       <button class="ghost-btn" data-action="edit-clv" data-id="${a.id}">${icon("trendingUp", 12)} ${clv !== null ? `CLV ${clv >= 0 ? "+" : ""}${clv.toFixed(1)}%` : "Cuota cierre"}</button>
       <button class="ghost-btn" data-action="edit-nota" data-id="${a.id}">📝 ${a.nota ? "Editar nota" : "Añadir nota"}</button>
     </div>
@@ -1801,19 +1909,63 @@ function runAction(action, el) {
   else if (action === "edit-clv") {
     const id = Number(el.dataset.id);
     const a = state.apuestas.find(x => x.id === id);
-    const val = prompt("Cuota de cierre (para calcular CLV):", a.cuotaCierre ?? "");
-    if (val === null) return;
-    const num = parseFloat(val);
-    state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, cuotaCierre: isNaN(num) ? null : num } : x);
-    saveApuestas(); render();
+    showPromptModal({
+      title: "Cuota de cierre",
+      message: "Para calcular el CLV (Closing Line Value) de esta apuesta.",
+      defaultValue: a.cuotaCierre != null ? String(a.cuotaCierre) : "",
+      placeholder: "ej. 1.90",
+      numeric: true,
+    }).then(val => {
+      if (val === null) return;
+      const num = parseFloat(normalizeDecimal(val));
+      state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, cuotaCierre: isNaN(num) ? null : num } : x);
+      saveApuestas(); render();
+    });
   }
   else if (action === "edit-nota") {
     const id = Number(el.dataset.id);
     const a = state.apuestas.find(x => x.id === id);
-    const val = prompt("Nota:", a.nota || "");
-    if (val === null) return;
-    state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, nota: val } : x);
-    saveApuestas(); render();
+    showPromptModal({
+      title: "Nota",
+      defaultValue: a.nota || "",
+      placeholder: "¿Por qué tomaste esta apuesta?",
+    }).then(val => {
+      if (val === null) return;
+      state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, nota: val } : x);
+      saveApuestas(); render();
+    });
+  }
+  else if (action === "cobro-anticipado") {
+    const id = Number(el.dataset.id);
+    const a = state.apuestas.find(x => x.id === id);
+    const yaCobrada = a.estado === "Cobrada";
+    const potencial = a.monto * a.cuota;
+    showPromptModal({
+      title: "Cobro anticipado",
+      message: `Invertiste ${fmt(a.monto)} y la ganancia completa sería ${fmt(potencial)}. El cobro puede ser cualquier monto entre esos dos números, o incluso menor a lo invertido.\n\nDeja el campo vacío para quitar el cobro anticipado.`,
+      defaultValue: yaCobrada && a.montoCobrado != null ? String(a.montoCobrado) : "",
+      placeholder: "Monto que te pagó la casa",
+      numeric: true,
+      validate: (val) => {
+        const trimmed = val.trim();
+        if (trimmed === "") return null; // vacío = válido, significa "quitar cobro"
+        const monto = parseFloat(normalizeDecimal(trimmed));
+        if (isNaN(monto) || monto < 0) return "Ingresa un monto válido.";
+        return null;
+      },
+    }).then(val => {
+      if (val === null) return;
+      const trimmed = val.trim();
+      if (trimmed === "") {
+        // Vacío = deshacer el cobro anticipado, vuelve a Pendiente.
+        state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, estado: "Pendiente", montoCobrado: null } : x);
+        saveApuestas(); render();
+        return;
+      }
+      const monto = parseFloat(normalizeDecimal(trimmed));
+      state.apuestas = state.apuestas.map(x => x.id === id ? { ...x, estado: "Cobrada", montoCobrado: monto } : x);
+      saveApuestas(); render();
+    });
   }
   else if (action === "export-apuestas-csv") { downloadFile(`apuestas_${today}.csv`, "\uFEFF" + apuestasToCSV(state.apuestas), "text/csv;charset=utf-8;"); }
   else if (action === "export-historial-csv") { downloadFile(`apuestas_filtradas_${today}.csv`, "\uFEFF" + apuestasToCSV(computeFiltradas()), "text/csv;charset=utf-8;"); }
