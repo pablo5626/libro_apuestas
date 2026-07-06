@@ -1786,7 +1786,13 @@ function render() {
 
   if (activeId) {
     const el = document.getElementById(activeId);
-    if (el) {
+    // Los <select> (Deporte, Tipo) y los inputs de fecha usan un selector tipo
+    // rueda en iOS. Si les devolvemos el foco por programa justo después de
+    // elegir una opción (que es lo que dispara este render), iOS reabre esa
+    // rueda — se sentía como que "la página se vuelve a abrir" al elegir un
+    // deporte. Estos elementos no necesitan conservar el foco entre renders
+    // como sí lo necesita un campo de texto donde sigues escribiendo.
+    if (el && el.tagName !== "SELECT" && el.type !== "date") {
       el.focus();
       if (selStart !== null && el.setSelectionRange) {
         try { el.setSelectionRange(selStart, selEnd); } catch (_) {}
